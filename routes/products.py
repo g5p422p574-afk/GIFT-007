@@ -1,7 +1,7 @@
 import os
 import uuid
-from flask import Blueprint, render_template, request, redirect, url_for, current_app
-from models import db, Product
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, flash
+from models import db, Product, OrderItem
 from config import ALLOWED_EXTENSIONS
 
 products_bp = Blueprint("products", __name__)
@@ -60,6 +60,8 @@ def edit(product_id):
 @products_bp.route("/product/<int:product_id>/delete", methods=["POST"])
 def delete(product_id):
     product = Product.query.get_or_404(product_id)
+    # Delete associated order items first to avoid FK constraint error
+    OrderItem.query.filter_by(product_id=product.id).delete()
     db.session.delete(product)
     db.session.commit()
     return redirect(url_for("products.index"))
