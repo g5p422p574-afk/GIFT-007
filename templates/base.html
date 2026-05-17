@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Gift{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <nav>
+    <div class="nav-inner">
+      <a href="{{ url_for('home.index') }}" class="{{ 'active' if request.endpoint and 'home.index' == request.endpoint else '' }}">  主页</a>
+      <a href="{{ url_for('home.cart') }}" class="cart-link {{ 'active' if request.endpoint and 'home.cart' == request.endpoint else '' }}">
+          购物车
+        {% if cart_count is defined and cart_count > 0 %}
+        <span class="cart-badge">{{ cart_count }}</span>
+        {% endif %}
+      </a>
+      <a href="{{ url_for('orders.list_orders') }}" class="{{ 'active' if request.endpoint and 'orders' in request.endpoint else '' }}">  订单</a>
+      <a href="{{ url_for('products.index') }}" class="{{ 'active' if request.endpoint and 'products' in request.endpoint else '' }}">  管理</a>
+    </div>
+  </nav>
+  <div class="container">
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

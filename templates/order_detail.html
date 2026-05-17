@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}订单详情 #{{ order.id }}{% endblock %}
+{% block content %}
+<h2 class="page-title">订单详情 #{{ order.id }}</h2>
+
+<div class="detail-grid">
+  <div class="row"><span class="label">状态</span><span class="value"><span class="badge {{ 'badge-shipped' if order.status == 'shipped' else 'badge-ordered' }}">{{ '已发货' if order.status == 'shipped' else '已下单' }}</span></span></div>
+  <div class="row"><span class="label">下单时间</span><span class="value">{{ order.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span></div>
+  <div class="row"><span class="label">客户姓名</span><span class="value">{{ order.customer_name }}</span></div>
+  <div class="row"><span class="label">收货地址</span><span class="value">{{ order.customer_address }}</span></div>
+</div>
+
+<div class="detail-grid" style="margin-top:16px;">
+  <div class="row" style="border-bottom:none;padding-bottom:0;">
+    <span class="label">商品明细</span>
+    <span class="value" style="flex:1;">
+      <table class="cart-table" style="width:100%;">
+        <thead>
+          <tr><th>商品</th><th>货架号</th><th>单价</th><th>数量</th><th>小计</th></tr>
+        </thead>
+        <tbody>
+          {% for item in order.items %}
+          <tr>
+            <td>{{ item.product.name }}</td>
+            <td>{{ item.product.shelf_no }}</td>
+            <td>¥{{ "%.2f"|format(item.unit_price) }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>¥{{ "%.2f"|format(item.unit_price * item.quantity) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" style="text-align:right;font-weight:600;">合计</td>
+            <td style="font-size:18px;font-weight:700;color:var(--danger);">¥{{ "%.2f"|format(order.total_amount) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </span>
+  </div>
+</div>
+
+<div class="detail-grid" style="margin-top:16px;">
+  {% if order.payment_image %}
+  <div class="row"><span class="label">付款凭证</span><span class="value"><a href="{{ url_for('uploaded_file', filename=order.payment_image) }}" target="_blank"><img src="{{ url_for('uploaded_file', filename=order.payment_image) }}" class="preview" alt="付款凭证"></a></span></div>
+  {% endif %}
+  {% if order.tracking_no %}
+  <div class="row"><span class="label">快递单号</span><span class="value">{{ order.tracking_no }}</span></div>
+  {% endif %}
+  {% if order.shipping_image %}
+  <div class="row"><span class="label">发货凭证</span><span class="value"><a href="{{ url_for('uploaded_file', filename=order.shipping_image) }}" target="_blank"><img src="{{ url_for('uploaded_file', filename=order.shipping_image) }}" class="preview" alt="发货凭证"></a></span></div>
+  {% endif %}
+</div>
+
+<div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
+  <a href="{{ url_for('orders.print_order', order_id=order.id) }}" target="_blank" class="btn btn-print">  打印发货单</a>
+  <a href="{{ url_for('orders.list_orders') }}" class="btn btn-outline">返回列表</a>
+</div>
+
+{% if order.status == 'ordered' %}
+<div class="ship-section">
+  <h3>  发货操作</h3>
+  <form method="POST" action="{{ url_for('orders.ship', order_id=order.id) }}" enctype="multipart/form-data">
+    <div class="form-group">
+      <label>快递单号</label>
+      <input type="text" name="tracking_no" maxlength="100" placeholder="填写快递单号（选填）">
+    </div>
+    <div class="form-group">
+      <label>发货凭证图片</label>
+      <input type="file" name="shipping_image" accept="image/*" style="padding:8px;">
+    </div>
+    <button type="submit" class="btn btn-success">确认发货</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

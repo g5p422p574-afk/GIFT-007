@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}订单列表{% endblock %}
+{% block content %}
+<h2 class="page-title">订单列表</h2>
+
+<div class="filter-bar">
+  <div class="search-bar" style="flex:1;min-width:200px;margin-bottom:0;">
+    <input type="text" id="searchInput" placeholder="  搜索客户姓名、地址、商品名、快递单号..." value="{{ q }}">
+  </div>
+  <div class="date-filter">
+    <input type="date" id="dateFrom" name="date_from" value="{{ date_from }}" class="date-input">
+    <span>至</span>
+    <input type="date" id="dateTo" name="date_to" value="{{ date_to }}" class="date-input">
+  </div>
+  <button type="button" id="dateFilterBtn" class="btn btn-outline btn-sm">筛选</button>
+  {% if date_from or date_to or q %}
+  <a href="{{ url_for('orders.list_orders') }}" class="btn btn-sm" style="color:var(--danger);">清除</a>
+  {% endif %}
+</div>
+
+{% if orders %}
+<div class="batch-bar">
+  <label class="check-all"><input type="checkbox" id="selectAll"> 全选</label>
+  <button type="button" id="batchPrintBtn" class="btn btn-print btn-sm">  批量打印</button>
+  <span id="selectedCount" style="color:var(--text-muted);font-size:13px;margin-left:8px;"></span>
+</div>
+
+<!-- Desktop: Table -->
+<div class="table-wrap">
+<table id="orderTable">
+  <thead>
+    <tr>
+      <th style="width:36px;"><input type="checkbox" id="selectAllH"></th>
+      <th>下单时间</th>
+      <th>客户</th>
+      <th>商品</th>
+      <th>金额</th>
+      <th>地址</th>
+      <th>状态</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for o in orders %}
+    {% set item_names = o.items | map(attribute='product.name') | join(', ') %}
+    {% set item_count = o.items | sum(attribute='quantity') %}
+    <tr data-keywords="{{ o.customer_name }} {{ o.customer_address }} {{ item_names }} {{ o.tracking_no }}">
+      <td><input type="checkbox" class="order-check" value="{{ o.id }}"></td>
+      <td>{{ o.created_at.strftime('%m-%d %H:%M') }}</td>
+      <td>{{ o.customer_name }}</td>
+      <td>{{ item_names | truncate(30) }} <span style="color:var(--text-muted);">({{ item_count }}件)</span></td>
+      <td>¥{{ "%.2f"|format(o.total_amount) }}</td>
+      <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ o.customer_address }}</td>
+      <td><span class="badge {{ 'badge-shipped' if o.status == 'shipped' else 'badge-ordered' }}">{{ '已发货' if o.status == 'shipped' else '已下单' }}</span></td>
+      <td>
+        <a href="{{ url_for('orders.detail', order_id=o.id) }}" class="btn btn-outline btn-sm">详情</a>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<!-- Mobile: Card list -->
+<div class="card-list" id="cardList">
+  {% for o in orders %}
+  {% set item_names = o.items | map(attribute='product.name') | join(', ') %}
+  {% set item_count = o.items | sum(attribute='quantity') %}
+  <div class="card-item" data-keywords="{{ o.customer_name }} {{ o.customer_address }} {{ item_names }} {{ o.tracking_no }}">
+    <div class="ci-row"><span class="ci-label"><input type="checkbox" class="order-check" value="{{ o.id }}"></span><span></span></div>
+    <div class="ci-row"><span class="ci-label">时间</span><span>{{ o.created_at.strftime('%Y-%m-%d %H:%M') }}</span></div>
+    <div class="ci-row"><span class="ci-label">客户</span><span>{{ o.customer_name }}</span></div>
+    <div class="ci-row"><span class="ci-label">商品</span><span>{{ item_names | truncate(40) }}</span></div>
+    <div class="ci-row"><span class="ci-label">数量</span><span>{{ item_count }}件</span></div>
+    <div class="ci-row"><span class="ci-label">金额</span><span style="color:var(--danger);font-weight:600;">¥{{ "%.2f"|format(o.total_amount) }}</span></div>
+    <div class="ci-row"><span class="ci-label">地址</span><span>{{ o.customer_address }}</span></div>
+    <div class="ci-row"><span class="ci-label">状态</span><span class="badge {{ 'badge-shipped' if o.status == 'shipped' else 'badge-ordered' }}">{{ '已发货' if o.status == 'shipped' else '已下单' }}</span></div>
+    <div class="ci-actions">
+      <a href="{{ url_for('orders.detail', order_id=o.id) }}" class="btn btn-outline btn-sm">详情</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty"><p>暂无订单</p></div>
+{% endif %}
+
+<script>
+const input2 = document.getElementById('searchInput');
+input2.addEventListener('input', function() {
+  const q = this.value.toLowerCase();
+  document.querySelectorAll('#orderTable tbody tr, #cardList .card-item').forEach(el => {
+    el.style.display = el.dataset.keywords.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
+
+// Date filter
+document.getElementById('dateFilterBtn').addEventListener('click', function() {
+  const from = document.getElementById('dateFrom').value;
+  const to = document.getElementById('dateTo').value;
+  let url = '/orders/?';
+  if (from) url += 'date_from=' + from + '&';
+  if (to) url += 'date_to=' + to + '&';
+  const q = document.getElementById('searchInput').value.trim();
+  if (q) url += 'q=' + encodeURIComponent(q);
+  window.location.href = url;
+});
+
+// Select all
+function updateSelectAll() {
+  const checks = document.querySelectorAll('.order-check');
+  const allChecked = checks.length > 0 && Array.from(checks).every(c => c.checked);
+  document.querySelectorAll('#selectAll, #selectAllH').forEach(el => el.checked = allChecked);
+  updateCount();
+}
+function updateCount() {
+  const count = document.querySelectorAll('.order-check:checked').length;
+  document.getElementById('selectedCount').textContent = count > 0 ? '已选 ' + count + ' 个' : '';
+}
+document.getElementById('selectAll').addEventListener('change', function() {
+  document.querySelectorAll('.order-check').forEach(c => c.checked = this.checked);
+  updateCount();
+});
+document.getElementById('selectAllH').addEventListener('change', function() {
+  document.querySelectorAll('.order-check').forEach(c => c.checked = this.checked);
+  updateCount();
+});
+document.querySelectorAll('.order-check').forEach(c => {
+  c.addEventListener('change', function() { updateSelectAll(); });
+});
+
+// Batch print
+document.getElementById('batchPrintBtn').addEventListener('click', function() {
+  const ids = Array.from(document.querySelectorAll('.order-check:checked')).map(c => c.value);
+  if (ids.length === 0) { alert('请先勾选要打印的订单'); return; }
+  window.open('/orders/batch-print?ids=' + ids.join(','), '_blank');
+});
+</script>
+{% endblock %}

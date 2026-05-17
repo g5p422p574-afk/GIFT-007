@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}商品管理{% endblock %}
+{% block content %}
+<div class="action-bar">
+  <h2 class="page-title" style="margin-bottom:0;">商品管理</h2>
+  <a href="{{ url_for('products.add') }}" class="btn btn-primary">+ 添加商品</a>
+</div>
+
+{% if products %}
+<!-- Desktop: Table -->
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>图片</th><th>名称</th><th>货架号</th><th>价格</th><th>时间</th><th>操作</th></tr>
+  </thead>
+  <tbody>
+    {% for p in products %}
+    <tr>
+      <td>
+        {% if p.image %}
+        <img src="{{ url_for('uploaded_file', filename=p.image) }}" class="thumb" alt="{{ p.name }}">
+        {% else %}
+        <span style="color:var(--text-muted);font-size:12px;">-</span>
+        {% endif %}
+      </td>
+      <td>{{ p.name }}</td>
+      <td>{{ p.shelf_no }}</td>
+      <td>¥{{ "%.2f"|format(p.price) }}</td>
+      <td>{{ p.created_at.strftime('%m-%d %H:%M') }}</td>
+      <td>
+        <a href="{{ url_for('products.edit', product_id=p.id) }}" class="btn btn-outline btn-sm">编辑</a>
+        <form method="POST" action="{{ url_for('products.delete', product_id=p.id) }}" style="display:inline;" onsubmit="return confirm('确定删除【{{ p.name }}】？');">
+          <button type="submit" class="btn btn-danger btn-sm">删除</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<!-- Mobile: Card list -->
+<div class="card-list">
+  {% for p in products %}
+  <div class="card-item">
+    <div class="ci-row"><span class="ci-label">商品</span><span>
+      {% if p.image %}<img src="{{ url_for('uploaded_file', filename=p.image) }}" class="thumb" alt="{{ p.name }}" style="width:40px;height:40px;vertical-align:middle;margin-right:8px;">{% endif %}
+      {{ p.name }}
+    </span></div>
+    <div class="ci-row"><span class="ci-label">货架号</span><span>{{ p.shelf_no }}</span></div>
+    <div class="ci-row"><span class="ci-label">价格</span><span style="color:var(--danger);font-weight:600;">¥{{ "%.2f"|format(p.price) }}</span></div>
+    <div class="ci-actions">
+      <a href="{{ url_for('products.edit', product_id=p.id) }}" class="btn btn-outline btn-sm">编辑</a>
+      <form method="POST" action="{{ url_for('products.delete', product_id=p.id) }}" style="display:inline;" onsubmit="return confirm('确定删除【{{ p.name }}】？');">
+        <button type="submit" class="btn btn-danger btn-sm">删除</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty"><p>还没有商品，点击上方按钮添加</p></div>
+{% endif %}
+{% endblock %}
