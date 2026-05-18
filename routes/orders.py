@@ -39,11 +39,12 @@ def list_orders():
     is_admin = request.args.get("admin") == "1" or is_admin_user()
 
     orders = Order.query
-    # Non-admin users see only their own orders
+    # Non-admin users see only their own orders (or nothing if not logged in)
     if not is_admin_user():
         if "user_id" not in session:
-            return redirect(url_for("home.login"))
-        orders = orders.filter(Order.user_id == session["user_id"])
+            orders = orders.filter(Order.id == 0)  # show nothing
+        else:
+            orders = orders.filter(Order.user_id == session["user_id"])
 
     if q:
         orders = orders.filter(
