@@ -14,6 +14,7 @@
   <div class="row" style="border-bottom:none;padding-bottom:0;">
     <span class="label">商品明细</span>
     <span class="value" style="flex:1;">
+      <div class="table-wrap">
       <table class="cart-table" style="width:100%;">
         <thead>
           <tr><th></th><th>商品</th><th>货架号</th><th>单价</th><th>数量</th><th>小计</th></tr>
@@ -41,6 +42,31 @@
           </tr>
         </tfoot>
       </table>
+      </div>
+
+      <!-- Mobile item cards -->
+      <div class="card-list" style="flex:1;">
+        {% for item in order.items %}
+        <div class="card-item">
+          <div class="ci-row">
+            <span class="ci-label">商品</span>
+            <span style="display:flex;align-items:center;gap:8px;">
+              {% if item.product.image %}
+              <img src="{{ url_for('uploaded_file', filename=item.product.image) }}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">
+              {% endif %}
+              {{ item.product.name }}
+            </span>
+          </div>
+          <div class="ci-row"><span class="ci-label">货架号</span><span>{{ item.product.shelf_no }}</span></div>
+          <div class="ci-row"><span class="ci-label">单价</span><span>¥{{ "%.2f"|format(item.unit_price) }}</span></div>
+          <div class="ci-row"><span class="ci-label">数量</span><span>{{ item.quantity }}</span></div>
+          <div class="ci-row"><span class="ci-label">小计</span><span style="font-weight:600;color:var(--danger);">¥{{ "%.2f"|format(item.unit_price * item.quantity) }}</span></div>
+        </div>
+        {% endfor %}
+        <div class="card-item" style="background:#fdfaf5;">
+          <div class="ci-row"><span class="ci-label" style="font-weight:700;">合计</span><span style="font-size:18px;font-weight:700;color:var(--danger);">¥{{ "%.2f"|format(order.total_amount) }}</span></div>
+        </div>
+      </div>
     </span>
   </div>
 </div>
