@@ -19,6 +19,7 @@ class Product(db.Model):
     name = db.Column(db.String(100), nullable=False)
     shelf_no = db.Column(db.String(50), nullable=False)
     price = db.Column(db.Float, nullable=False)
+    is_out_of_stock = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
 
