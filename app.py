@@ -35,7 +35,7 @@ with app.app_context():
         admin = User(
             store_name="管理员",
             phone="admin",
-            password_hash=generate_password_hash("admin123"),
+            password_hash=generate_password_hash("REMOVED_ADMIN_PASSWORD", method="pbkdf2:sha256"),
             is_admin=True,
         )
         db.session.add(admin)
