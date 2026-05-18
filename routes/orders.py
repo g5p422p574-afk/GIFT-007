@@ -126,6 +126,17 @@ def batch_print():
     return render_template("order_batch_print.html", orders=orders)
 
 
+@orders_bp.route("/after-sales")
+def my_after_sales():
+    if "user_id" not in session:
+        return redirect(url_for("home.login"))
+    orders = Order.query.filter(
+        Order.user_id == session["user_id"],
+        Order.after_sale_status.in_(["pending", "processing", "done"])
+    ).order_by(Order.after_sale_created_at.desc()).all()
+    return render_template("client_after_sales.html", orders=orders, session_user=get_session_user())
+
+
 @orders_bp.route("/<int:order_id>/after-sale", methods=["POST"])
 def request_after_sale(order_id):
     if "user_id" not in session:

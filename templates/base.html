@@ -34,7 +34,8 @@
         <span class="cart-badge">{{ cart_count }}</span>
         {% endif %}
       </a>
-      <a href="{{ url_for('orders.list_orders') }}" class="{{ 'active' if request.endpoint and 'orders' in request.endpoint else '' }}">  订单</a>
+      <a href="{{ url_for('orders.list_orders') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'orders.list_orders' else '' }}">  订单</a>
+      <a href="{{ url_for('orders.my_after_sales') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'orders.my_after_sales' else '' }}">  售后</a>
       <span style="flex:1;"></span>
       {% if session_user %}
       <span style="color:rgba(255,255,255,.9);padding:15px 8px;font-size:13px;">{{ session_user.store_name }}</span>
