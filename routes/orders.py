@@ -124,3 +124,20 @@ def batch_print():
     id_list = [int(i) for i in ids.split(",") if i.strip().isdigit()]
     orders = Order.query.filter(Order.id.in_(id_list)).order_by(Order.created_at.desc()).all()
     return render_template("order_batch_print.html", orders=orders)
+
+
+@orders_bp.route("/<int:order_id>/after-sale", methods=["POST"])
+def request_after_sale(order_id):
+    if "user_id" not in session:
+        return redirect(url_for("home.login"))
+    order = Order.query.get_or_404(order_id)
+    # Only allow client's own orders
+    if order.user_id != session["user_id"]:
+        return redirect(url_for("orders.list_orders"))
+    # Only allow if order is shipped and no existing after-sale
+    if order.status == "shipped" and not order.after_sale_status:
+        order.after_sale_status = "pending"
+        order.after_sale_reason = request.form.get("reason", "").strip()
+        order.after_sale_created_at = datetime.utcnow()
+        db.session.commit()
+    return redirect(url_for("orders.detail", order_id=order.id))

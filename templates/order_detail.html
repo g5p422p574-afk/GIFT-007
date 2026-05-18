@@ -52,6 +52,35 @@
   {% endif %}
 </div>
 
+{% if order.after_sale_status %}
+<div class="detail-grid" style="margin-top:16px;">
+  <div class="row"><span class="label">售后状态</span><span class="value">
+    {% if order.after_sale_status == 'pending' %}<span class="badge badge-ordered">待处理</span>
+    {% elif order.after_sale_status == 'processing' %}<span class="badge" style="background:#dbeafe;color:#1e40af;">处理中</span>
+    {% elif order.after_sale_status == 'done' %}<span class="badge badge-shipped">已完成</span>
+    {% endif %}
+  </span></div>
+  <div class="row"><span class="label">售后原因</span><span class="value">{{ order.after_sale_reason }}</span></div>
+  {% if order.after_sale_note %}
+  <div class="row"><span class="label">处理备注</span><span class="value">{{ order.after_sale_note }}</span></div>
+  {% endif %}
+  {% if order.after_sale_tracking %}
+  <div class="row"><span class="label">补发快递</span><span class="value">{{ order.after_sale_tracking }}</span></div>
+  {% endif %}
+</div>
+{% elif order.status == 'shipped' and not is_admin %}
+<div class="ship-section">
+  <h3>  申请售后</h3>
+  <form method="POST" action="{{ url_for('orders.request_after_sale', order_id=order.id) }}">
+    <div class="form-group">
+      <label>售后原因</label>
+      <textarea name="reason" required placeholder="请描述售后原因，如：商品破损、漏发等"></textarea>
+    </div>
+    <button type="submit" class="btn btn-print">提交售后申请</button>
+  </form>
+</div>
+{% endif %}
+
 <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
   <a href="{{ url_for('orders.print_order', order_id=order.id) }}" target="_blank" class="btn btn-print">  打印发货单</a>
   <a href="{{ url_for('orders.list_orders', admin=1 if is_admin else None) }}" class="btn btn-outline">返回列表</a>

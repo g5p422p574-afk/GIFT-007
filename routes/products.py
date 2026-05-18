@@ -150,3 +150,34 @@ def finance():
         date_from=date_from, date_to=date_to, store_q=store_q,
         unviewed_count=unviewed,
     )
+
+
+@products_bp.route("/after-sales")
+@admin_required
+def after_sales():
+    q = request.args.get("q", "").strip()
+    base = Order.query.filter(Order.after_sale_status.in_(["pending", "processing", "done"]))
+    if q:
+        base = base.filter(
+            Order.customer_name.contains(q)
+            | Order.after_sale_reason.contains(q)
+            | Order.user.has(User.store_name.contains(q))
+        )
+    orders = base.order_by(Order.after_sale_created_at.desc()).all()
+    unviewed = Order.query.filter_by(is_viewed=False).count()
+    return render_template("after_sales.html", orders=orders, q=q, unviewed_count=unviewed)
+
+
+@products_bp.route("/after-sale/<int:order_id>/process", methods=["POST"])
+@admin_required
+def process_after_sale(order_id):
+    order = Order.query.get_or_404(order_id)
+    action = request.form.get("action", "")
+    if action == "done":
+        order.after_sale_status = "done"
+        order.after_sale_note = request.form.get("note", "").strip()
+        order.after_sale_tracking = request.form.get("tracking", "").strip()
+    elif action == "processing":
+        order.after_sale_status = "processing"
+    db.session.commit()
+    return redirect(url_for("products.after_sales"))
