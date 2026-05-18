@@ -82,7 +82,9 @@
 {% endif %}
 
 <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
+  {% if is_admin %}
   <a href="{{ url_for('orders.print_order', order_id=order.id) }}" target="_blank" class="btn btn-print">  打印发货单</a>
+  {% endif %}
   <a href="{{ url_for('orders.list_orders', admin=1 if is_admin else None) }}" class="btn btn-outline">返回列表</a>
 </div>
 
