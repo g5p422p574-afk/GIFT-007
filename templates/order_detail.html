@@ -16,11 +16,16 @@
     <span class="value" style="flex:1;">
       <table class="cart-table" style="width:100%;">
         <thead>
-          <tr><th>商品</th><th>货架号</th><th>单价</th><th>数量</th><th>小计</th></tr>
+          <tr><th></th><th>商品</th><th>货架号</th><th>单价</th><th>数量</th><th>小计</th></tr>
         </thead>
         <tbody>
           {% for item in order.items %}
           <tr>
+            <td style="width:50px;">
+              {% if item.product.image %}
+              <img src="{{ url_for('uploaded_file', filename=item.product.image) }}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">
+              {% endif %}
+            </td>
             <td>{{ item.product.name }}</td>
             <td>{{ item.product.shelf_no }}</td>
             <td>¥{{ "%.2f"|format(item.unit_price) }}</td>
@@ -31,7 +36,7 @@
         </tbody>
         <tfoot>
           <tr>
-            <td colspan="4" style="text-align:right;font-weight:600;">合计</td>
+            <td colspan="5" style="text-align:right;font-weight:600;">合计</td>
             <td style="font-size:18px;font-weight:700;color:var(--danger);">¥{{ "%.2f"|format(order.total_amount) }}</td>
           </tr>
         </tfoot>
