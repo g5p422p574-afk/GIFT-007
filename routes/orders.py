@@ -61,6 +61,15 @@ def list_orders():
         orders = orders.filter(Order.created_at <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
 
     orders = orders.order_by(Order.created_at.desc()).all()
+
+    # Admin viewing orders: mark all unviewed as viewed
+    if is_admin_user():
+        unviewed = [o for o in orders if not o.is_viewed]
+        if unviewed:
+            for o in unviewed:
+                o.is_viewed = True
+            db.session.commit()
+
     return render_template("order_list.html", orders=orders, q=q, date_from=date_from, date_to=date_to, is_admin=is_admin, session_user=get_session_user())
 
 
@@ -68,6 +77,9 @@ def list_orders():
 def detail(order_id):
     is_admin = request.args.get("admin") == "1" or is_admin_user()
     order = Order.query.get_or_404(order_id)
+    if is_admin_user() and not order.is_viewed:
+        order.is_viewed = True
+        db.session.commit()
     return render_template("order_detail.html", order=order, is_admin=is_admin, session_user=get_session_user())
 
 

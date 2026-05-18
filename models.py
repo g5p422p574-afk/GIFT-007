@@ -32,6 +32,7 @@ class Order(db.Model):
     status = db.Column(db.String(20), default="ordered")
     shipping_image = db.Column(db.String(200), default="")
     tracking_no = db.Column(db.String(100), default="")
+    is_viewed = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     user = db.relationship("User", backref="orders")

@@ -2,7 +2,7 @@ import os
 import uuid
 from functools import wraps
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, session
-from models import db, Product, OrderItem
+from models import db, Product, OrderItem, Order
 from config import ALLOWED_EXTENSIONS
 
 products_bp = Blueprint("products", __name__)
@@ -34,7 +34,8 @@ def save_upload(file):
 @admin_required
 def index():
     products = Product.query.order_by(Product.created_at.desc()).all()
-    return render_template("admin_products.html", products=products)
+    unviewed = Order.query.filter_by(is_viewed=False).count()
+    return render_template("admin_products.html", products=products, unviewed_count=unviewed)
 
 
 @products_bp.route("/product/add", methods=["GET", "POST"])
@@ -45,13 +46,13 @@ def add():
         shelf_no = request.form.get("shelf_no", "").strip()
         price = request.form.get("price", "").strip()
         if not name or not shelf_no or not price:
-            return render_template("product_form.html", product=None, error="请填写完整信息")
+            return render_template("product_form.html", product=None, error="请填写完整信息", unviewed_count=Order.query.filter_by(is_viewed=False).count())
         image = save_upload(request.files.get("image"))
         product = Product(name=name, shelf_no=shelf_no, price=float(price), image=image)
         db.session.add(product)
         db.session.commit()
         return redirect(url_for("products.index"))
-    return render_template("product_form.html", product=None, error=None)
+    return render_template("product_form.html", product=None, error=None, unviewed_count=Order.query.filter_by(is_viewed=False).count())
 
 
 @products_bp.route("/product/<int:product_id>/edit", methods=["GET", "POST"])
@@ -67,7 +68,7 @@ def edit(product_id):
             product.image = img
         db.session.commit()
         return redirect(url_for("products.index"))
-    return render_template("product_form.html", product=product, error=None)
+    return render_template("product_form.html", product=product, error=None, unviewed_count=Order.query.filter_by(is_viewed=False).count())
 
 
 @products_bp.route("/product/<int:product_id>/delete", methods=["POST"])
