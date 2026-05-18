@@ -567,6 +567,44 @@ tfoot td { border-bottom: none; font-weight: 600; background: #fafafa; }
   margin-top: 4px;
 }
 
+/* === Stats Grid === */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.stat-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  box-shadow: var(--shadow);
+}
+.stat-label { font-size: 13px; color: var(--text-muted); margin-bottom: 8px; font-weight: 500; }
+.stat-revenue { font-size: 26px; font-weight: 800; color: var(--text); letter-spacing: -.5px; }
+.stat-sub { font-size: 13px; color: var(--text-secondary); margin-top: 4px; }
+
+/* === Finance Grid === */
+.finance-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.finance-panel {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.finance-panel h3 { font-size: 16px; font-weight: 700; margin-bottom: 14px; }
+
+/* === Responsive finance === */
+@media (max-width: 768px) {
+  .finance-grid { grid-template-columns: 1fr; }
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-revenue { font-size: 20px; }
+}
+
 /* === Auth Pages === */
 .auth-page {
   display: flex;
