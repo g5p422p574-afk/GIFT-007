@@ -1,8 +1,10 @@
 import os
 import uuid
+from datetime import datetime, timedelta
 from functools import wraps
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, session
-from models import db, Product, OrderItem, Order
+from sqlalchemy import func
+from models import db, Product, User, OrderItem, Order
 from config import ALLOWED_EXTENSIONS
 
 products_bp = Blueprint("products", __name__)
@@ -80,3 +82,71 @@ def delete(product_id):
     db.session.delete(product)
     db.session.commit()
     return redirect(url_for("products.index"))
+
+
+@products_bp.route("/finance")
+@admin_required
+def finance():
+    date_from = request.args.get("date_from", "").strip()
+    date_to = request.args.get("date_to", "").strip()
+    store_q = request.args.get("store", "").strip()
+
+    base = Order.query.filter(Order.status.in_(["ordered", "shipped"]))
+
+    # Store name filter
+    if store_q:
+        base = base.filter(Order.user.has(User.store_name.contains(store_q)))
+
+    # Date range filter
+    if date_from:
+        base = base.filter(Order.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+    if date_to:
+        base = base.filter(Order.created_at <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+
+    # Summary stats
+    total_revenue = base.with_entities(func.sum(Order.total_amount)).scalar() or 0
+    total_orders = base.count()
+
+    # Today
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_revenue = base.filter(Order.created_at >= today_start).with_entities(func.sum(Order.total_amount)).scalar() or 0
+    today_orders = base.filter(Order.created_at >= today_start).count()
+
+    # This month
+    month_start = datetime.utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    month_revenue = base.filter(Order.created_at >= month_start).with_entities(func.sum(Order.total_amount)).scalar() or 0
+    month_orders = base.filter(Order.created_at >= month_start).count()
+
+    # This year
+    year_start = datetime.utcnow().replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    year_revenue = base.filter(Order.created_at >= year_start).with_entities(func.sum(Order.total_amount)).scalar() or 0
+    year_orders = base.filter(Order.created_at >= year_start).count()
+
+    # Per-store breakdown
+    store_stats = base.with_entities(
+        User.store_name, func.sum(Order.total_amount), func.count(Order.id)
+    ).join(User, Order.user_id == User.id, isouter=True).group_by(
+        User.store_name
+    ).order_by(func.sum(Order.total_amount).desc()).all()
+
+    # Daily breakdown (last 30 days) for chart-like table
+    daily_stats = base.filter(
+        Order.created_at >= datetime.utcnow() - timedelta(days=30)
+    ).with_entities(
+        func.date(Order.created_at), func.sum(Order.total_amount), func.count(Order.id)
+    ).group_by(
+        func.date(Order.created_at)
+    ).order_by(func.date(Order.created_at).desc()).all()
+
+    unviewed = Order.query.filter_by(is_viewed=False).count()
+
+    return render_template(
+        "finance.html",
+        total_revenue=total_revenue, total_orders=total_orders,
+        today_revenue=today_revenue, today_orders=today_orders,
+        month_revenue=month_revenue, month_orders=month_orders,
+        year_revenue=year_revenue, year_orders=year_orders,
+        store_stats=store_stats, daily_stats=daily_stats,
+        date_from=date_from, date_to=date_to, store_q=store_q,
+        unviewed_count=unviewed,
+    )
