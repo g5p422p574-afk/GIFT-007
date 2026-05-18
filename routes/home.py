@@ -59,6 +59,9 @@ def template_context(**kwargs):
     kwargs.setdefault("cart_count", get_cart_data()[2])
     kwargs["session_user"] = user
     kwargs["is_admin"] = is_admin
+    # Unviewed orders count for admin notification dot
+    if is_admin:
+        kwargs["unviewed_count"] = Order.query.filter_by(is_viewed=False).count()
     return kwargs
 
 

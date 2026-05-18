@@ -10,7 +10,12 @@
   <nav>
     <div class="nav-inner">
       {% if is_admin is defined and is_admin %}
-      <a href="{{ url_for('orders.list_orders', admin=1) }}" class="{{ 'active' if request.endpoint and 'orders' in request.endpoint else '' }}">  订单</a>
+      <a href="{{ url_for('orders.list_orders', admin=1) }}" class="notify-link {{ 'active' if request.endpoint and 'orders' in request.endpoint else '' }}">
+          订单
+        {% if unviewed_count is defined and unviewed_count > 0 %}
+        <span class="notify-dot"></span>
+        {% endif %}
+      </a>
       <a href="{{ url_for('products.index') }}" class="{{ 'active' if request.endpoint and 'products' in request.endpoint else '' }}">  商品管理</a>
       <span style="flex:1;"></span>
       <a href="{{ url_for('home.logout') }}" style="font-size:13px;">  退出</a>
