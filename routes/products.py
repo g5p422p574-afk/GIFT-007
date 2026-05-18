@@ -41,9 +41,13 @@ def save_upload(file):
 @products_bp.route("/")
 @admin_required
 def index():
-    products = Product.query.order_by(Product.created_at.desc()).all()
+    q = request.args.get("q", "").strip()
+    products = Product.query
+    if q:
+        products = products.filter(Product.name.contains(q) | Product.shelf_no.contains(q))
+    products = products.order_by(Product.created_at.desc()).all()
     unviewed = Order.query.filter_by(is_viewed=False).count()
-    return render_template("admin_products.html", products=products, unviewed_count=unviewed, session_user=get_admin_user())
+    return render_template("admin_products.html", products=products, unviewed_count=unviewed, session_user=get_admin_user(), q=q)
 
 
 @products_bp.route("/product/add", methods=["GET", "POST"])
@@ -86,6 +90,15 @@ def delete(product_id):
     # Delete associated order items first to avoid FK constraint error
     OrderItem.query.filter_by(product_id=product.id).delete()
     db.session.delete(product)
+    db.session.commit()
+    return redirect(url_for("products.index"))
+
+
+@products_bp.route("/product/<int:product_id>/toggle-stock", methods=["POST"])
+@admin_required
+def toggle_stock(product_id):
+    product = Product.query.get_or_404(product_id)
+    product.is_out_of_stock = not product.is_out_of_stock
     db.session.commit()
     return redirect(url_for("products.index"))
 
