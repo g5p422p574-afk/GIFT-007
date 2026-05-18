@@ -9,6 +9,10 @@
 <body>
   <nav>
     <div class="nav-inner">
+      {% if is_admin is defined and is_admin %}
+      <a href="{{ url_for('orders.list_orders', admin=1) }}" class="{{ 'active' if request.endpoint and 'orders' in request.endpoint else '' }}">  订单</a>
+      <a href="{{ url_for('products.index') }}" class="{{ 'active' if request.endpoint and 'products' in request.endpoint else '' }}">  商品管理</a>
+      {% else %}
       <a href="{{ url_for('home.index') }}" class="{{ 'active' if request.endpoint and 'home.index' == request.endpoint else '' }}">  主页</a>
       <a href="{{ url_for('home.cart') }}" class="cart-link {{ 'active' if request.endpoint and 'home.cart' == request.endpoint else '' }}">
           购物车
@@ -17,6 +21,7 @@
         {% endif %}
       </a>
       <a href="{{ url_for('orders.list_orders') }}" class="{{ 'active' if request.endpoint and 'orders' in request.endpoint else '' }}">  订单</a>
+      {% endif %}
     </div>
   </nav>
   <div class="container">

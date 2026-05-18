@@ -26,6 +26,7 @@ def list_orders():
     q = request.args.get("q", "").strip()
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
+    is_admin = request.args.get("admin") == "1"
 
     orders = Order.query
     if q:
@@ -41,17 +42,19 @@ def list_orders():
         orders = orders.filter(Order.created_at <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
 
     orders = orders.order_by(Order.created_at.desc()).all()
-    return render_template("order_list.html", orders=orders, q=q, date_from=date_from, date_to=date_to)
+    return render_template("order_list.html", orders=orders, q=q, date_from=date_from, date_to=date_to, is_admin=is_admin)
 
 
 @orders_bp.route("/<int:order_id>")
 def detail(order_id):
+    is_admin = request.args.get("admin") == "1"
     order = Order.query.get_or_404(order_id)
-    return render_template("order_detail.html", order=order)
+    return render_template("order_detail.html", order=order, is_admin=is_admin)
 
 
 @orders_bp.route("/<int:order_id>/ship", methods=["POST"])
 def ship(order_id):
+    is_admin = request.args.get("admin") == "1"
     order = Order.query.get_or_404(order_id)
     tracking_no = request.form.get("tracking_no", "").strip()
     shipping_image = save_upload(request.files.get("shipping_image"))
@@ -64,7 +67,7 @@ def ship(order_id):
         order.status = "shipped"
 
     db.session.commit()
-    return redirect(url_for("orders.detail", order_id=order.id))
+    return redirect(url_for("orders.detail", order_id=order.id, admin=1 if is_admin else None))
 
 
 @orders_bp.route("/<int:order_id>/print")
