@@ -236,7 +236,8 @@ def register():
 
 @home_bp.route("/logout")
 def logout():
-    session.pop("user_id", None)
-    session.pop("admin_id", None)
-    session.pop("is_admin", None)
+    was_admin = session.get("is_admin", False)
+    session.clear()
+    if was_admin:
+        return redirect(url_for("home.admin_login"))
     return redirect(url_for("home.index"))
