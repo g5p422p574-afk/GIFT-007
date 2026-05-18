@@ -51,7 +51,15 @@
 <div class="card-list">
   {% for item in items %}
   <div class="card-item">
-    <div class="ci-row"><span class="ci-label">商品</span><span>{{ item.product.name }}</span></div>
+    <div class="ci-row">
+      <span class="ci-label">商品</span>
+      <span style="display:flex;align-items:center;gap:8px;">
+        {% if item.product.image %}
+        <img src="{{ url_for('uploaded_file', filename=item.product.image) }}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">
+        {% endif %}
+        {{ item.product.name }}
+      </span>
+    </div>
     <div class="ci-row"><span class="ci-label">货架号</span><span>{{ item.product.shelf_no }}</span></div>
     <div class="ci-row"><span class="ci-label">单价</span><span>¥{{ "%.2f"|format(item.product.price) }}</span></div>
     <div class="ci-row">
