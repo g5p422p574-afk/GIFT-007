@@ -28,7 +28,10 @@ app.register_blueprint(orders_bp, url_prefix="/orders")
 app.register_blueprint(products_bp, url_prefix="/admin")
 
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+    except Exception:
+        pass  # tables exist, another worker created them
 
     # Create default admin if not exists
     if not User.query.filter_by(is_admin=True).first():
