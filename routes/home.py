@@ -78,6 +78,8 @@ def cart():
 
 @home_bp.route("/cart/add/<int:product_id>", methods=["POST"])
 def cart_add(product_id):
+    if "user_id" not in session:
+        return redirect(url_for("home.login"))
     cart = session.get("cart", {})
     pid = str(product_id)
     cart[pid] = cart.get(pid, 0) + 1
