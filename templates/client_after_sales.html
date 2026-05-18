@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}我的售后{% endblock %}
+{% block content %}
+<h2 class="page-title">  我的售后</h2>
+
+{% if orders %}
+<div class="table-wrap">
+<table>
+  <thead>
+    <tr><th>申请时间</th><th>商品</th><th>售后原因</th><th>状态</th><th>补发快递</th><th>处理备注</th></tr>
+  </thead>
+  <tbody>
+    {% for o in orders %}
+    {% set item_names = o.items | map(attribute='product.name') | join(', ') %}
+    <tr>
+      <td>{{ o.after_sale_created_at.strftime('%m-%d %H:%M') if o.after_sale_created_at else '-' }}</td>
+      <td>{{ item_names | truncate(30) }}</td>
+      <td>{{ o.after_sale_reason | truncate(30) }}</td>
+      <td>
+        {% if o.after_sale_status == 'pending' %}
+        <span class="badge badge-ordered">待处理</span>
+        {% elif o.after_sale_status == 'processing' %}
+        <span class="badge" style="background:#dbeafe;color:#1e40af;">处理中</span>
+        {% elif o.after_sale_status == 'done' %}
+        <span class="badge badge-shipped">已完成</span>
+        {% endif %}
+      </td>
+      <td>{{ o.after_sale_tracking or '-' }}</td>
+      <td>{{ o.after_sale_note or '-' | truncate(20) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<div class="card-list">
+  {% for o in orders %}
+  {% set item_names = o.items | map(attribute='product.name') | join(', ') %}
+  <div class="card-item">
+    <div class="ci-row"><span class="ci-label">时间</span><span>{{ o.after_sale_created_at.strftime('%Y-%m-%d %H:%M') if o.after_sale_created_at else '-' }}</span></div>
+    <div class="ci-row"><span class="ci-label">商品</span><span>{{ item_names | truncate(30) }}</span></div>
+    <div class="ci-row"><span class="ci-label">原因</span><span>{{ o.after_sale_reason }}</span></div>
+    <div class="ci-row"><span class="ci-label">状态</span>
+      <span>
+        {% if o.after_sale_status == 'pending' %}<span class="badge badge-ordered">待处理</span>
+        {% elif o.after_sale_status == 'processing' %}<span class="badge" style="background:#dbeafe;color:#1e40af;">处理中</span>
+        {% elif o.after_sale_status == 'done' %}<span class="badge badge-shipped">已完成</span>
+        {% endif %}
+      </span>
+    </div>
+    {% if o.after_sale_tracking %}
+    <div class="ci-row"><span class="ci-label">补发快递</span><span>{{ o.after_sale_tracking }}</span></div>
+    {% endif %}
+    {% if o.after_sale_note %}
+    <div class="ci-row"><span class="ci-label">处理备注</span><span>{{ o.after_sale_note }}</span></div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty"><p>暂无售后记录</p></div>
+{% endif %}
+{% endblock %}
