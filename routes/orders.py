@@ -49,12 +49,17 @@ def list_orders():
             orders = orders.filter(Order.user_id == session["user_id"])
 
     if q:
-        orders = orders.filter(
+        # Also search by store name (via user relation)
+        store_match = User.store_name.contains(q) if is_admin_user() else None
+        filters = (
             Order.customer_name.contains(q)
             | Order.customer_address.contains(q)
             | Order.tracking_no.contains(q)
             | Order.items.any(OrderItem.product.has(name=q))
         )
+        if store_match is not None:
+            filters = filters | Order.user.has(store_match)
+        orders = orders.filter(filters)
     if date_from:
         orders = orders.filter(Order.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
     if date_to:

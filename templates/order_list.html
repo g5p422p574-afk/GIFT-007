@@ -5,7 +5,7 @@
 
 <div class="filter-bar">
   <div class="search-bar" style="flex:1;min-width:200px;margin-bottom:0;">
-    <input type="text" id="searchInput" placeholder="  搜索客户姓名、地址、商品名、快递单号..." value="{{ q }}">
+    <input type="text" id="searchInput" placeholder="  搜索店名、客户姓名、地址、商品名、快递单号..." value="{{ q }}">
   </div>
   <div class="date-filter">
     <input type="date" id="dateFrom" name="date_from" value="{{ date_from }}" class="date-input">
@@ -32,6 +32,7 @@
     <tr>
       <th style="width:36px;"><input type="checkbox" id="selectAllH"></th>
       <th>下单时间</th>
+      {% if is_admin %}<th>店名</th>{% endif %}
       <th>客户</th>
       <th>商品</th>
       <th>金额</th>
@@ -44,9 +45,11 @@
     {% for o in orders %}
     {% set item_names = o.items | map(attribute='product.name') | join(', ') %}
     {% set item_count = o.items | sum(attribute='quantity') %}
-    <tr data-keywords="{{ o.customer_name }} {{ o.customer_address }} {{ item_names }} {{ o.tracking_no }}">
+    {% set store_name = o.user.store_name if o.user else '-' %}
+    <tr data-keywords="{{ o.customer_name }} {{ o.customer_address }} {{ item_names }} {{ o.tracking_no }} {{ store_name }}">
       <td><input type="checkbox" class="order-check" value="{{ o.id }}"></td>
       <td>{{ o.created_at.strftime('%m-%d %H:%M') }}</td>
+      {% if is_admin %}<td>{{ store_name }}</td>{% endif %}
       <td>{{ o.customer_name }}</td>
       <td>{{ item_names | truncate(30) }} <span style="color:var(--text-muted);">({{ item_count }}件)</span></td>
       <td>¥{{ "%.2f"|format(o.total_amount) }}</td>
@@ -66,9 +69,11 @@
   {% for o in orders %}
   {% set item_names = o.items | map(attribute='product.name') | join(', ') %}
   {% set item_count = o.items | sum(attribute='quantity') %}
-  <div class="card-item" data-keywords="{{ o.customer_name }} {{ o.customer_address }} {{ item_names }} {{ o.tracking_no }}">
+  {% set store_name = o.user.store_name if o.user else '-' %}
+  <div class="card-item" data-keywords="{{ o.customer_name }} {{ o.customer_address }} {{ item_names }} {{ o.tracking_no }} {{ store_name }}">
     <div class="ci-row"><span class="ci-label"><input type="checkbox" class="order-check" value="{{ o.id }}"></span><span></span></div>
     <div class="ci-row"><span class="ci-label">时间</span><span>{{ o.created_at.strftime('%Y-%m-%d %H:%M') }}</span></div>
+    {% if is_admin %}<div class="ci-row"><span class="ci-label">店名</span><span>{{ store_name }}</span></div>{% endif %}
     <div class="ci-row"><span class="ci-label">客户</span><span>{{ o.customer_name }}</span></div>
     <div class="ci-row"><span class="ci-label">商品</span><span>{{ item_names | truncate(40) }}</span></div>
     <div class="ci-row"><span class="ci-label">数量</span><span>{{ item_count }}件</span></div>
