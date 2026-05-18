@@ -20,7 +20,12 @@
       <a href="{{ url_for('products.finance') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.finance' else '' }}">  财务管理</a>
       <a href="{{ url_for('products.after_sales') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.after_sales' else '' }}">  售后管理</a>
       <span style="flex:1;"></span>
+      {% if session_user %}
+      <span style="color:rgba(255,255,255,.9);padding:15px 8px;font-size:13px;">{{ session_user.store_name }}</span>
       <a href="{{ url_for('home.logout') }}" style="font-size:13px;">  退出</a>
+      {% else %}
+      <a href="{{ url_for('home.admin_login') }}" style="font-size:13px;">登录</a>
+      {% endif %}
       {% else %}
       <a href="{{ url_for('home.index') }}" class="{{ 'active' if request.endpoint and 'home.index' == request.endpoint else '' }}">  主页</a>
       <a href="{{ url_for('home.cart') }}" class="cart-link {{ 'active' if request.endpoint and 'home.cart' == request.endpoint else '' }}">
