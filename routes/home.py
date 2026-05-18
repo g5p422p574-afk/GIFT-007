@@ -191,9 +191,20 @@ def register():
         store_name = request.form.get("store_name", "").strip()
         phone = request.form.get("phone", "").strip()
         password = request.form.get("password", "").strip()
+        password2 = request.form.get("password2", "").strip()
 
-        if not store_name or not phone or not password:
+        if not store_name or not phone or not password or not password2:
             return render_template("register.html", error="所有字段都是必填的")
+
+        import re
+        if not re.match(r"^\d{11}$", phone):
+            return render_template("register.html", error="手机号必须是11位数字")
+
+        if password != password2:
+            return render_template("register.html", error="两次输入的密码不一致")
+
+        if len(password) < 6:
+            return render_template("register.html", error="密码至少6位")
 
         if User.query.filter_by(phone=phone).first():
             return render_template("register.html", error="该手机号已注册")
