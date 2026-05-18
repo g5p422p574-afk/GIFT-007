@@ -10,6 +10,12 @@ from config import ALLOWED_EXTENSIONS
 products_bp = Blueprint("products", __name__)
 
 
+def get_admin_user():
+    if session.get("admin_id"):
+        return User.query.get(session["admin_id"])
+    return None
+
+
 def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
@@ -37,7 +43,7 @@ def save_upload(file):
 def index():
     products = Product.query.order_by(Product.created_at.desc()).all()
     unviewed = Order.query.filter_by(is_viewed=False).count()
-    return render_template("admin_products.html", products=products, unviewed_count=unviewed)
+    return render_template("admin_products.html", products=products, unviewed_count=unviewed, session_user=get_admin_user())
 
 
 @products_bp.route("/product/add", methods=["GET", "POST"])
@@ -48,13 +54,13 @@ def add():
         shelf_no = request.form.get("shelf_no", "").strip()
         price = request.form.get("price", "").strip()
         if not name or not shelf_no or not price:
-            return render_template("product_form.html", product=None, error="请填写完整信息", unviewed_count=Order.query.filter_by(is_viewed=False).count())
+            return render_template("product_form.html", product=None, error="请填写完整信息", unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
         image = save_upload(request.files.get("image"))
         product = Product(name=name, shelf_no=shelf_no, price=float(price), image=image)
         db.session.add(product)
         db.session.commit()
         return redirect(url_for("products.index"))
-    return render_template("product_form.html", product=None, error=None, unviewed_count=Order.query.filter_by(is_viewed=False).count())
+    return render_template("product_form.html", product=None, error=None, unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
 
 
 @products_bp.route("/product/<int:product_id>/edit", methods=["GET", "POST"])
@@ -70,7 +76,7 @@ def edit(product_id):
             product.image = img
         db.session.commit()
         return redirect(url_for("products.index"))
-    return render_template("product_form.html", product=product, error=None, unviewed_count=Order.query.filter_by(is_viewed=False).count())
+    return render_template("product_form.html", product=product, error=None, unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
 
 
 @products_bp.route("/product/<int:product_id>/delete", methods=["POST"])
@@ -149,6 +155,7 @@ def finance():
         store_stats=store_stats, daily_stats=daily_stats,
         date_from=date_from, date_to=date_to, store_q=store_q,
         unviewed_count=unviewed,
+        session_user=get_admin_user(),
     )
 
 
@@ -165,7 +172,7 @@ def after_sales():
         )
     orders = base.order_by(Order.after_sale_created_at.desc()).all()
     unviewed = Order.query.filter_by(is_viewed=False).count()
-    return render_template("after_sales.html", orders=orders, q=q, unviewed_count=unviewed)
+    return render_template("after_sales.html", orders=orders, q=q, unviewed_count=unviewed, session_user=get_admin_user())
 
 
 @products_bp.route("/after-sale/<int:order_id>/process", methods=["POST"])
