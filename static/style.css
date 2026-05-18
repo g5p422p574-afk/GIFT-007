@@ -605,6 +605,26 @@ tfoot td { border-bottom: none; font-weight: 600; background: #fafafa; }
   .stat-revenue { font-size: 20px; }
 }
 
+/* === Modal === */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-content {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 24px;
+  max-width: 440px;
+  width: 90%;
+  box-shadow: var(--shadow-lg);
+}
+.modal-content h3 { font-size: 18px; margin-bottom: 16px; }
+
 /* === Auth Pages === */
 .auth-page {
   display: flex;

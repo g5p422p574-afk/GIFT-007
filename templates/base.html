@@ -18,6 +18,7 @@
       </a>
       <a href="{{ url_for('products.index') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.index' else '' }}">  商品管理</a>
       <a href="{{ url_for('products.finance') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.finance' else '' }}">  财务管理</a>
+      <a href="{{ url_for('products.after_sales') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.after_sales' else '' }}">  售后管理</a>
       <span style="flex:1;"></span>
       <a href="{{ url_for('home.logout') }}" style="font-size:13px;">  退出</a>
       {% else %}
