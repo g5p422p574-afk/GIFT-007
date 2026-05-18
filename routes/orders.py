@@ -28,6 +28,8 @@ def is_admin_user():
 def get_session_user():
     if "user_id" in session:
         return User.query.get(session["user_id"])
+    if "admin_id" in session:
+        return User.query.get(session["admin_id"])
     return None
 
 

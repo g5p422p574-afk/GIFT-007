@@ -52,9 +52,13 @@ def template_context(**kwargs):
     user = None
     if "user_id" in session:
         user = User.query.get(session["user_id"])
+    is_admin = session.get("is_admin", False)
+    # If admin logged in, get admin user for display
+    if not user and is_admin and "admin_id" in session:
+        user = User.query.get(session["admin_id"])
     kwargs.setdefault("cart_count", get_cart_data()[2])
     kwargs["session_user"] = user
-    kwargs["is_admin"] = session.get("is_admin", False)
+    kwargs["is_admin"] = is_admin
     return kwargs
 
 
@@ -162,8 +166,9 @@ def admin_login():
         password = request.form.get("password", "").strip()
         user = User.query.filter_by(phone=phone, is_admin=True).first()
         if user and check_password_hash(user.password_hash, password):
-            session["user_id"] = user.id
+            session["admin_id"] = user.id
             session["is_admin"] = True
+            session.pop("user_id", None)  # clear client login
             return redirect(url_for("products.index"))
         return render_template("login.html", error="管理员账号或密码错误", is_admin=None, error_msg=None)
 
@@ -178,7 +183,8 @@ def login():
         user = User.query.filter_by(phone=phone, is_admin=False).first()
         if user and check_password_hash(user.password_hash, password):
             session["user_id"] = user.id
-            session["is_admin"] = False
+            session.pop("is_admin", None)
+            session.pop("admin_id", None)
             return redirect(request.args.get("next") or url_for("home.index"))
         return render_template("login.html", error="手机号或密码错误")
 
@@ -218,7 +224,8 @@ def register():
         db.session.commit()
 
         session["user_id"] = user.id
-        session["is_admin"] = False
+        session.pop("is_admin", None)
+        session.pop("admin_id", None)
         return redirect(url_for("home.index"))
 
     return render_template("register.html", error=None)
@@ -226,5 +233,7 @@ def register():
 
 @home_bp.route("/logout")
 def logout():
-    session.clear()
+    session.pop("user_id", None)
+    session.pop("admin_id", None)
+    session.pop("is_admin", None)
     return redirect(url_for("home.index"))
