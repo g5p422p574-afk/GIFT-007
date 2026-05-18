@@ -1,7 +1,8 @@
 import os
+from werkzeug.security import generate_password_hash
 from flask import Flask, send_from_directory
 from config import SECRET_KEY, SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS, UPLOAD_FOLDER, BASE_DIR
-from models import db
+from models import db, User
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -11,6 +12,7 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 
 db.init_app(app)
+
 
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
@@ -27,6 +29,17 @@ app.register_blueprint(products_bp, url_prefix="/admin")
 
 with app.app_context():
     db.create_all()
+
+    # Create default admin if not exists
+    if not User.query.filter_by(is_admin=True).first():
+        admin = User(
+            store_name="管理员",
+            phone="admin",
+            password_hash=generate_password_hash("admin123"),
+            is_admin=True,
+        )
+        db.session.add(admin)
+        db.session.commit()
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=5000)

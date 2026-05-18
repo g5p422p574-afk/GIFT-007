@@ -512,6 +512,49 @@ tfoot td { border-bottom: none; font-weight: 600; background: #fafafa; }
   .detail-grid .row .label { margin-bottom: 4px; }
 }
 
+/* === Auth Pages === */
+.auth-page {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 40px;
+}
+.auth-card {
+  background: var(--card-bg);
+  border-radius: var(--radius);
+  padding: 32px;
+  box-shadow: var(--shadow);
+  width: 100%;
+  max-width: 400px;
+}
+.auth-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 24px;
+  text-align: center;
+  color: var(--text);
+}
+.auth-error {
+  background: var(--danger-light);
+  color: var(--danger);
+  padding: 10px 14px;
+  border-radius: var(--radius-xs);
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.auth-link {
+  text-align: center;
+  margin-top: 16px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+.auth-link a {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+.auth-link a:hover { text-decoration: underline; }
+
 /* === Print: page break for batch === */
 @media screen {
   .page-break { margin-bottom: 30px; border-bottom: 2px dashed var(--border); padding-bottom: 20px; }

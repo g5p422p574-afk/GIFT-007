@@ -1,8 +1,8 @@
 from datetime import datetime
 import os
 import uuid
-from flask import Blueprint, render_template, request, redirect, url_for, current_app
-from models import db, Order, OrderItem
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, session
+from models import db, User, Order, OrderItem
 from config import ALLOWED_EXTENSIONS
 
 orders_bp = Blueprint("orders", __name__)
@@ -21,14 +21,30 @@ def save_upload(file):
     return ""
 
 
+def is_admin_user():
+    return session.get("is_admin", False)
+
+
+def get_session_user():
+    if "user_id" in session:
+        return User.query.get(session["user_id"])
+    return None
+
+
 @orders_bp.route("/")
 def list_orders():
     q = request.args.get("q", "").strip()
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
-    is_admin = request.args.get("admin") == "1"
+    is_admin = request.args.get("admin") == "1" or is_admin_user()
 
     orders = Order.query
+    # Non-admin users see only their own orders
+    if not is_admin_user():
+        if "user_id" not in session:
+            return redirect(url_for("home.login"))
+        orders = orders.filter(Order.user_id == session["user_id"])
+
     if q:
         orders = orders.filter(
             Order.customer_name.contains(q)
@@ -42,19 +58,21 @@ def list_orders():
         orders = orders.filter(Order.created_at <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
 
     orders = orders.order_by(Order.created_at.desc()).all()
-    return render_template("order_list.html", orders=orders, q=q, date_from=date_from, date_to=date_to, is_admin=is_admin)
+    return render_template("order_list.html", orders=orders, q=q, date_from=date_from, date_to=date_to, is_admin=is_admin, session_user=get_session_user())
 
 
 @orders_bp.route("/<int:order_id>")
 def detail(order_id):
-    is_admin = request.args.get("admin") == "1"
+    is_admin = request.args.get("admin") == "1" or is_admin_user()
     order = Order.query.get_or_404(order_id)
-    return render_template("order_detail.html", order=order, is_admin=is_admin)
+    return render_template("order_detail.html", order=order, is_admin=is_admin, session_user=get_session_user())
 
 
 @orders_bp.route("/<int:order_id>/ship", methods=["POST"])
 def ship(order_id):
-    is_admin = request.args.get("admin") == "1"
+    if not is_admin_user():
+        return redirect(url_for("home.login"))
+    is_admin = request.args.get("admin") == "1" or True
     order = Order.query.get_or_404(order_id)
     tracking_no = request.form.get("tracking_no", "").strip()
     shipping_image = save_upload(request.files.get("shipping_image"))
@@ -78,6 +96,8 @@ def print_order(order_id):
 
 @orders_bp.route("/batch-print")
 def batch_print():
+    if not is_admin_user():
+        return redirect(url_for("home.login"))
     ids = request.args.get("ids", "")
     if not ids:
         return redirect(url_for("orders.list_orders"))

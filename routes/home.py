@@ -1,7 +1,9 @@
 import os
 import uuid
+from functools import wraps
+from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, session
-from models import db, Product, Order, OrderItem
+from models import db, Product, User, Order, OrderItem
 from config import ALLOWED_EXTENSIONS
 
 home_bp = Blueprint("home", __name__)
@@ -20,8 +22,16 @@ def save_upload(file):
     return ""
 
 
+def login_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if "user_id" not in session:
+            return redirect(url_for("home.login", next=request.path))
+        return f(*args, **kwargs)
+    return decorated
+
+
 def get_cart_data():
-    """Return list of {product, quantity, subtotal} from session cart."""
     cart = session.get("cart", {})
     items = []
     total = 0
@@ -37,6 +47,17 @@ def get_cart_data():
     return items, total, count
 
 
+def template_context(**kwargs):
+    """Add common template variables."""
+    user = None
+    if "user_id" in session:
+        user = User.query.get(session["user_id"])
+    kwargs.setdefault("cart_count", get_cart_data()[2])
+    kwargs["session_user"] = user
+    kwargs["is_admin"] = session.get("is_admin", False)
+    return kwargs
+
+
 @home_bp.route("/")
 def index():
     q = request.args.get("q", "").strip()
@@ -46,14 +67,13 @@ def index():
             Product.name.contains(q) | Product.shelf_no.contains(q)
         )
     products = products.order_by(Product.created_at.desc()).all()
-    _, _, cart_count = get_cart_data()
-    return render_template("home.html", products=products, q=q, cart_count=cart_count)
+    return render_template("home.html", products=products, q=q, **template_context())
 
 
 @home_bp.route("/cart")
 def cart():
     items, total, _ = get_cart_data()
-    return render_template("cart.html", items=items, total=total)
+    return render_template("cart.html", items=items, total=total, **template_context())
 
 
 @home_bp.route("/cart/add/<int:product_id>", methods=["POST"])
@@ -87,6 +107,7 @@ def cart_remove(product_id):
 
 
 @home_bp.route("/order/create", methods=["GET", "POST"])
+@login_required
 def checkout():
     if request.method == "POST":
         items, total, _ = get_cart_data()
@@ -98,19 +119,20 @@ def checkout():
         if not customer_name or not customer_address:
             return render_template(
                 "checkout.html", items=items, total=total,
-                error="请填写姓名和收货地址"
+                error="请填写姓名和收货地址", **template_context()
             )
 
         payment_image = save_upload(request.files.get("payment_image"))
 
         order = Order(
+            user_id=session["user_id"],
             customer_name=customer_name,
             customer_address=customer_address,
             payment_image=payment_image,
             total_amount=total,
         )
         db.session.add(order)
-        db.session.flush()  # get order.id
+        db.session.flush()
 
         for item in items:
             oi = OrderItem(
@@ -128,4 +150,55 @@ def checkout():
     items, total, _ = get_cart_data()
     if not items:
         return redirect(url_for("home.cart"))
-    return render_template("checkout.html", items=items, total=total, error=None)
+    return render_template("checkout.html", items=items, total=total, error=None, **template_context())
+
+
+@home_bp.route("/login", methods=["GET", "POST"])
+def login():
+    if request.method == "POST":
+        phone = request.form.get("phone", "").strip()
+        password = request.form.get("password", "").strip()
+        user = User.query.filter_by(phone=phone).first()
+        if user and check_password_hash(user.password_hash, password):
+            session["user_id"] = user.id
+            session["is_admin"] = user.is_admin
+            if user.is_admin:
+                return redirect(url_for("products.index"))
+            return redirect(request.args.get("next") or url_for("home.index"))
+        return render_template("login.html", error="手机号或密码错误")
+
+    return render_template("login.html", error=None)
+
+
+@home_bp.route("/register", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        store_name = request.form.get("store_name", "").strip()
+        phone = request.form.get("phone", "").strip()
+        password = request.form.get("password", "").strip()
+
+        if not store_name or not phone or not password:
+            return render_template("register.html", error="所有字段都是必填的")
+
+        if User.query.filter_by(phone=phone).first():
+            return render_template("register.html", error="该手机号已注册")
+
+        user = User(
+            store_name=store_name,
+            phone=phone,
+            password_hash=generate_password_hash(password),
+        )
+        db.session.add(user)
+        db.session.commit()
+
+        session["user_id"] = user.id
+        session["is_admin"] = False
+        return redirect(url_for("home.index"))
+
+    return render_template("register.html", error=None)
+
+
+@home_bp.route("/logout")
+def logout():
+    session.clear()
+    return redirect(url_for("home.index"))

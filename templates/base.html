@@ -12,6 +12,8 @@
       {% if is_admin is defined and is_admin %}
       <a href="{{ url_for('orders.list_orders', admin=1) }}" class="{{ 'active' if request.endpoint and 'orders' in request.endpoint else '' }}">  订单</a>
       <a href="{{ url_for('products.index') }}" class="{{ 'active' if request.endpoint and 'products' in request.endpoint else '' }}">  商品管理</a>
+      <span style="flex:1;"></span>
+      <a href="{{ url_for('home.logout') }}" style="font-size:13px;">  退出</a>
       {% else %}
       <a href="{{ url_for('home.index') }}" class="{{ 'active' if request.endpoint and 'home.index' == request.endpoint else '' }}">  主页</a>
       <a href="{{ url_for('home.cart') }}" class="cart-link {{ 'active' if request.endpoint and 'home.cart' == request.endpoint else '' }}">
@@ -21,6 +23,14 @@
         {% endif %}
       </a>
       <a href="{{ url_for('orders.list_orders') }}" class="{{ 'active' if request.endpoint and 'orders' in request.endpoint else '' }}">  订单</a>
+      <span style="flex:1;"></span>
+      {% if session_user %}
+      <span style="color:rgba(255,255,255,.9);padding:15px 8px;font-size:13px;">{{ session_user.store_name }}</span>
+      <a href="{{ url_for('home.logout') }}" style="font-size:13px;">退出</a>
+      {% else %}
+      <a href="{{ url_for('home.login') }}" style="font-size:13px;">登录</a>
+      <a href="{{ url_for('home.register') }}" style="font-size:13px;">注册</a>
+      {% endif %}
       {% endif %}
     </div>
   </nav>

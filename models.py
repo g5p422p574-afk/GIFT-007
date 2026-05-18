@@ -4,6 +4,15 @@ from flask_sqlalchemy import SQLAlchemy
 db = SQLAlchemy()
 
 
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    store_name = db.Column(db.String(50), nullable=False)
+    phone = db.Column(db.String(20), unique=True, nullable=False)
+    password_hash = db.Column(db.String(200), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+
 class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     image = db.Column(db.String(200), default="")
@@ -15,6 +24,7 @@ class Product(db.Model):
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=True)
     customer_name = db.Column(db.String(50), nullable=False)
     customer_address = db.Column(db.Text, nullable=False)
     payment_image = db.Column(db.String(200), default="")
@@ -24,6 +34,7 @@ class Order(db.Model):
     tracking_no = db.Column(db.String(100), default="")
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    user = db.relationship("User", backref="orders")
     items = db.relationship("OrderItem", backref="order", lazy=True)
 
 

@@ -1,10 +1,20 @@
 import os
 import uuid
-from flask import Blueprint, render_template, request, redirect, url_for, current_app, flash
+from functools import wraps
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, session
 from models import db, Product, OrderItem
 from config import ALLOWED_EXTENSIONS
 
 products_bp = Blueprint("products", __name__)
+
+
+def admin_required(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get("is_admin"):
+            return redirect(url_for("home.login"))
+        return f(*args, **kwargs)
+    return decorated
 
 
 def allowed_file(filename):
@@ -21,12 +31,14 @@ def save_upload(file):
 
 
 @products_bp.route("/")
+@admin_required
 def index():
     products = Product.query.order_by(Product.created_at.desc()).all()
     return render_template("admin_products.html", products=products)
 
 
 @products_bp.route("/product/add", methods=["GET", "POST"])
+@admin_required
 def add():
     if request.method == "POST":
         name = request.form.get("name", "").strip()
@@ -43,6 +55,7 @@ def add():
 
 
 @products_bp.route("/product/<int:product_id>/edit", methods=["GET", "POST"])
+@admin_required
 def edit(product_id):
     product = Product.query.get_or_404(product_id)
     if request.method == "POST":
@@ -58,6 +71,7 @@ def edit(product_id):
 
 
 @products_bp.route("/product/<int:product_id>/delete", methods=["POST"])
+@admin_required
 def delete(product_id):
     product = Product.query.get_or_404(product_id)
     # Delete associated order items first to avoid FK constraint error
