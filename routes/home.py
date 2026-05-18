@@ -173,7 +173,7 @@ def admin_login():
             session["is_admin"] = True
             session.pop("user_id", None)  # clear client login
             return redirect(url_for("products.index"))
-        return render_template("login.html", error="管理员账号或密码错误", is_admin=None, error_msg=None)
+        return render_template("login.html", error="管理员账号或密码错误", is_admin=True)
 
     return render_template("login.html", error=None, is_admin=True)
 
