@@ -12,7 +12,7 @@ def admin_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
         if not session.get("is_admin"):
-            return redirect(url_for("home.login"))
+            return redirect(url_for("home.admin_login"))
         return f(*args, **kwargs)
     return decorated
 

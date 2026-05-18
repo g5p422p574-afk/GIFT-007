@@ -153,17 +153,30 @@ def checkout():
     return render_template("checkout.html", items=items, total=total, error=None, **template_context())
 
 
+@home_bp.route("/admin-login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        phone = request.form.get("phone", "").strip()
+        password = request.form.get("password", "").strip()
+        user = User.query.filter_by(phone=phone, is_admin=True).first()
+        if user and check_password_hash(user.password_hash, password):
+            session["user_id"] = user.id
+            session["is_admin"] = True
+            return redirect(url_for("products.index"))
+        return render_template("login.html", error="管理员账号或密码错误", is_admin=None, error_msg=None)
+
+    return render_template("login.html", error=None, is_admin=True)
+
+
 @home_bp.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         phone = request.form.get("phone", "").strip()
         password = request.form.get("password", "").strip()
-        user = User.query.filter_by(phone=phone).first()
+        user = User.query.filter_by(phone=phone, is_admin=False).first()
         if user and check_password_hash(user.password_hash, password):
             session["user_id"] = user.id
-            session["is_admin"] = user.is_admin
-            if user.is_admin:
-                return redirect(url_for("products.index"))
+            session["is_admin"] = False
             return redirect(request.args.get("next") or url_for("home.index"))
         return render_template("login.html", error="手机号或密码错误")
 
