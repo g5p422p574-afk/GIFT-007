@@ -19,6 +19,20 @@ def uploaded_file(filename):
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
+@app.route("/sw.js")
+def service_worker():
+    return send_from_directory(
+        os.path.join(app.root_path, "static"),
+        "sw.js",
+        mimetype="application/javascript",
+    )
+
+
+@app.route("/offline.html")
+def offline():
+    return send_from_directory(os.path.join(app.root_path, "static"), "offline.html")
+
+
 from routes.home import home_bp
 from routes.orders import orders_bp
 from routes.products import products_bp
