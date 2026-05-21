@@ -1,0 +1,25 @@
+{
+  "name": "Gift - 礼品商城",
+  "short_name": "Gift",
+  "description": "在线礼品商城",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#fdfaf5",
+  "theme_color": "#8b6f5e",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

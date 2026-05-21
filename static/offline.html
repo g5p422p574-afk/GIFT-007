@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>离线 - Gift</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: #fdfaf5;
+      color: #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .offline-card {
+      text-align: center;
+      padding: 48px 32px;
+    }
+    .offline-icon {
+      font-size: 64px;
+      margin-bottom: 24px;
+      opacity: 0.6;
+    }
+    h1 {
+      font-size: 22px;
+      color: #8b6f5e;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 15px;
+      color: #888;
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+    button {
+      background: #8b6f5e;
+      color: #fff;
+      border: none;
+      padding: 12px 40px;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    button:active {
+      opacity: 0.8;
+    }
+  </style>
+</head>
+<body>
+  <div class="offline-card">
+    <div class="offline-icon">&#9884;</div>
+    <h1>暂无网络连接</h1>
+    <p>请检查您的网络设置，<br>联网后重试。</p>
+    <button onclick="location.reload()">重试</button>
+  </div>
+</body>
+</html>
