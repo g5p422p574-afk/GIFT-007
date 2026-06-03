@@ -514,7 +514,8 @@ tfoot td { border-bottom: none; font-weight: 600; background: #fafafa; }
   .product-card .info .price { font-size: 16px; }
   .product-card .btn-order { margin: 0 12px 12px; padding: 10px; font-size: 13px; }
 
-  table { display: none; }
+  table { display: none; } 
+	  .checkout-summary table { display: table; width: 100%; }
   .card-list { display: flex; flex-direction: column; gap: 10px; }
   .card-item {
     background: var(--card-bg);

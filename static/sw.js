@@ -1,4 +1,4 @@
-const CACHE_NAME = "gift-v1";
+const CACHE_NAME = "gift-v2";
 const PRE_CACHE = [
   "/",
   "/static/style.css",
