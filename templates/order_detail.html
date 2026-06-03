@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block title %}订单详情 #{{ order.id }}{% endblock %}
+{% block content %}
+<h2 class="page-title">订单详情 #{{ order.id }}</h2>
+
+<div class="detail-grid">
+  <div class="row"><span class="label">状态</span><span class="value">
+    {% if order.status == 'shipped' %}<span class="badge badge-shipped">已发货</span>
+    {% elif order.status == 'confirmed' %}<span class="badge badge-confirmed">已确认</span>
+    {% else %}<span class="badge badge-ordered">已下单</span>{% endif %}
+  </span></div>
+  <div class="row"><span class="label">下单时间</span><span class="value">{{ order.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span></div>
+  <div class="row"><span class="label">客户姓名</span><span class="value">{{ order.customer_name }}</span></div>
+  <div class="row"><span class="label">联系电话</span><span class="value">{{ order.customer_phone }}</span></div>
+  <div class="row"><span class="label">收货地址</span><span class="value">{{ order.customer_address }}</span></div>
+</div>
+
+<div class="detail-grid" style="margin-top:16px;">
+  <div class="row" style="border-bottom:none;padding-bottom:0;">
+    <span class="label">商品明细</span>
+    <span class="value" style="flex:1;">
+      <div class="table-wrap">
+      <table class="cart-table" style="width:100%;">
+        <thead>
+          <tr><th></th><th>商品</th><th>货架号</th><th>单价</th><th>数量</th><th>小计</th></tr>
+        </thead>
+        <tbody>
+          {% for item in order.items %}
+          <tr>
+            <td style="width:50px;">
+              {% if item.product.image %}
+              <img src="{{ url_for('uploaded_file', filename=item.product.image) }}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">
+              {% endif %}
+            </td>
+            <td>{{ item.product.name }}</td>
+            <td>{{ item.product.shelf_no }}</td>
+            <td>¥{{ "%.2f"|format(item.unit_price) }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>¥{{ "%.2f"|format(item.unit_price * item.quantity) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5" style="text-align:right;font-weight:600;">合计</td>
+            <td style="font-size:18px;font-weight:700;color:var(--danger);">¥{{ "%.2f"|format(order.total_amount) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+      </div>
+
+      <!-- Mobile item cards -->
+      <div class="card-list" style="flex:1;">
+        {% for item in order.items %}
+        <div class="card-item">
+          <div class="ci-row">
+            <span class="ci-label">商品</span>
+            <span style="display:flex;align-items:center;gap:8px;">
+              {% if item.product.image %}
+              <img src="{{ url_for('uploaded_file', filename=item.product.image) }}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">
+              {% endif %}
+              {{ item.product.name }}
+            </span>
+          </div>
+          <div class="ci-row"><span class="ci-label">货架号</span><span>{{ item.product.shelf_no }}</span></div>
+          <div class="ci-row"><span class="ci-label">单价</span><span>¥{{ "%.2f"|format(item.unit_price) }}</span></div>
+          <div class="ci-row"><span class="ci-label">数量</span><span>{{ item.quantity }}</span></div>
+          <div class="ci-row"><span class="ci-label">小计</span><span style="font-weight:600;color:var(--danger);">¥{{ "%.2f"|format(item.unit_price * item.quantity) }}</span></div>
+        </div>
+        {% endfor %}
+        <div class="card-item" style="background:#fdfaf5;">
+          <div class="ci-row"><span class="ci-label" style="font-weight:700;">合计</span><span style="font-size:18px;font-weight:700;color:var(--danger);">¥{{ "%.2f"|format(order.total_amount) }}</span></div>
+        </div>
+      </div>
+    </span>
+  </div>
+</div>
+
+<div class="detail-grid" style="margin-top:16px;">
+  {% if order.payment_image %}
+  <div class="row"><span class="label">付款凭证</span><span class="value"><a href="{{ url_for('uploaded_file', filename=order.payment_image) }}" target="_blank"><img src="{{ url_for('uploaded_file', filename=order.payment_image) }}" class="preview" alt="付款凭证"></a></span></div>
+  {% endif %}
+  {% if order.tracking_no %}
+  <div class="row"><span class="label">快递单号</span><span class="value">{{ order.tracking_no }}</span></div>
+  {% endif %}
+  {% if order.shipping_image %}
+  <div class="row"><span class="label">发货凭证</span><span class="value"><a href="{{ url_for('uploaded_file', filename=order.shipping_image) }}" target="_blank"><img src="{{ url_for('uploaded_file', filename=order.shipping_image) }}" class="preview" alt="发货凭证"></a></span></div>
+  {% endif %}
+</div>
+
+{# Client payment update: available before order is shipped #}
+{% if not is_admin and session_user and session.get('store_id') and session.get('store_id') == order.store_id and order.status in ('ordered', 'confirmed') %}
+<div class="ship-section">
+  <h3>更新付款凭证</h3>
+  <form method="POST" action="{{ url_for('orders.update_payment', order_id=order.id) }}" enctype="multipart/form-data">
+    <div class="form-group">
+      <label>重新上传付款截图</label>
+      <input type="file" name="payment_image" accept="image/*" style="padding:8px;" required>
+    </div>
+    <button type="submit" class="btn btn-success">上传新凭证</button>
+  </form>
+</div>
+{% endif %}
+
+{% if order.after_sale_status %}
+<div class="detail-grid" style="margin-top:16px;">
+  <div class="row"><span class="label">售后状态</span><span class="value">
+    {% if order.after_sale_status == 'pending' %}<span class="badge badge-ordered">待处理</span>
+    {% elif order.after_sale_status == 'processing' %}<span class="badge" style="background:#dbeafe;color:#1e40af;">处理中</span>
+    {% elif order.after_sale_status == 'done' %}<span class="badge badge-shipped">已完成</span>
+    {% endif %}
+  </span></div>
+  <div class="row"><span class="label">售后原因</span><span class="value">{{ order.after_sale_reason }}</span></div>
+  {% if order.after_sale_note %}
+  <div class="row"><span class="label">处理备注</span><span class="value">{{ order.after_sale_note }}</span></div>
+  {% endif %}
+  {% if order.after_sale_tracking %}
+  <div class="row"><span class="label">补发快递</span><span class="value">{{ order.after_sale_tracking }}</span></div>
+  {% endif %}
+</div>
+{% elif order.status == 'shipped' and not is_admin %}
+<div class="ship-section">
+  <h3>  申请售后</h3>
+  <form method="POST" action="{{ url_for('orders.request_after_sale', order_id=order.id) }}">
+    <div class="form-group">
+      <label>售后原因</label>
+      <textarea name="reason" required placeholder="请描述售后原因，如：商品破损、漏发等"></textarea>
+    </div>
+    <button type="submit" class="btn btn-print">提交售后申请</button>
+  </form>
+</div>
+{% endif %}
+
+<div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap;">
+  {% if is_admin %}
+  <a href="{{ url_for('orders.print_order', order_id=order.id) }}" target="_blank" class="btn btn-print">  打印发货单</a>
+  {% endif %}
+  <a href="{{ url_for('orders.list_orders', admin=1 if is_admin else None) }}" class="btn btn-outline">返回列表</a>
+</div>
+
+{% if order.status == 'confirmed' and is_admin %}
+<div class="ship-section">
+  <h3>  发货操作</h3>
+  <form method="POST" action="{{ url_for('orders.ship', order_id=order.id, admin=1 if is_admin else None) }}" enctype="multipart/form-data">
+    <div class="form-group">
+      <label>快递单号</label>
+      <input type="text" name="tracking_no" maxlength="100" placeholder="填写快递单号（选填）">
+    </div>
+    <div class="form-group">
+      <label>发货凭证图片</label>
+      <input type="file" name="shipping_image" accept="image/*" style="padding:8px;">
+    </div>
+    <button type="submit" class="btn btn-success">确认发货</button>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% set is_admin = 1 %}
+{% block title %}财务管理{% endblock %}
+{% block content %}
+<h2 class="page-title">  财务管理</h2>
+
+<!-- Filter bar -->
+<form class="filter-bar" method="GET" action="{{ url_for('products.finance') }}">
+  <div class="search-bar" style="flex:1;min-width:160px;margin-bottom:0;">
+    <input type="text" name="store" placeholder="  搜索店名..." value="{{ store_q }}">
+  </div>
+  <div class="date-filter">
+    <input type="date" name="date_from" value="{{ date_from }}" class="date-input">
+    <span>至</span>
+    <input type="date" name="date_to" value="{{ date_to }}" class="date-input">
+  </div>
+  <button type="submit" class="btn btn-primary btn-sm">筛选</button>
+  {% if date_from or date_to or store_q %}
+  <a href="{{ url_for('products.finance') }}" class="btn btn-sm" style="color:var(--danger);">清除</a>
+  {% endif %}
+</form>
+
+<!-- Summary cards -->
+<div class="stats-grid">
+  <div class="stat-card stat-today">
+    <div class="stat-label">  今日销售</div>
+    <div class="stat-revenue">¥{{ "%.2f"|format(today_revenue) }}</div>
+    <div class="stat-sub">{{ today_orders }} 笔订单</div>
+  </div>
+  <div class="stat-card stat-month">
+    <div class="stat-label">  本月销售</div>
+    <div class="stat-revenue">¥{{ "%.2f"|format(month_revenue) }}</div>
+    <div class="stat-sub">{{ month_orders }} 笔订单</div>
+  </div>
+  <div class="stat-card stat-year">
+    <div class="stat-label">  年度销售</div>
+    <div class="stat-revenue">¥{{ "%.2f"|format(year_revenue) }}</div>
+    <div class="stat-sub">{{ year_orders }} 笔订单</div>
+  </div>
+  <div class="stat-card stat-all">
+    <div class="stat-label">  累计销售</div>
+    <div class="stat-revenue">¥{{ "%.2f"|format(total_revenue) }}</div>
+    <div class="stat-sub">{{ total_orders }} 笔订单</div>
+  </div>
+</div>
+
+<div class="finance-grid">
+  <!-- Per-store breakdown -->
+  <div class="finance-panel">
+    <h3>  店铺销售排行</h3>
+    {% if store_stats %}
+    <table class="cart-table">
+      <thead>
+        <tr><th>店名</th><th>销售额</th><th>订单数</th><th>客单价</th></tr>
+      </thead>
+      <tbody>
+        {% for s in store_stats %}
+        <tr>
+          <td>{{ s[0] or '未注册客户' }}</td>
+          <td>¥{{ "%.2f"|format(s[1]) }}</td>
+          <td>{{ s[2] }}</td>
+          <td>¥{{ "%.2f"|format(s[1] / s[2]) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty"><p>暂无数据</p></div>
+    {% endif %}
+  </div>
+
+  <!-- Daily breakdown -->
+  <div class="finance-panel">
+    <h3>  近30天销售趋势</h3>
+    {% if daily_stats %}
+    <table class="cart-table">
+      <thead>
+        <tr><th>日期</th><th>销售额</th><th>订单数</th></tr>
+      </thead>
+      <tbody>
+        {% for d in daily_stats %}
+        <tr>
+          <td>{{ d[0] }}</td>
+          <td>¥{{ "%.2f"|format(d[1]) }}</td>
+          <td>{{ d[2] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty"><p>暂无数据</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

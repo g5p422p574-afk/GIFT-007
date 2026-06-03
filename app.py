@@ -1,0 +1,126 @@
+import os
+from werkzeug.security import generate_password_hash
+from flask import Flask, send_from_directory
+from sqlalchemy import event, inspect, text
+from sqlalchemy.engine import Engine
+from config import ENV, SECRET_KEY, SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS, UPLOAD_FOLDER, BASE_DIR
+from models import db, User, Store, Order, Address
+
+app = Flask(__name__)
+app.secret_key = SECRET_KEY
+app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = SQLALCHEMY_TRACK_MODIFICATIONS
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+
+db.init_app(app)
+
+# SQLite does not enforce foreign keys by default — turn them on per connection.
+if ENV == "development":
+    @event.listens_for(Engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys = ON")
+        cursor.close()
+
+
+@app.route("/uploads/<path:filename>")
+def uploaded_file(filename):
+    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
+
+
+@app.route("/sw.js")
+def service_worker():
+    return send_from_directory(
+        os.path.join(app.root_path, "static"),
+        "sw.js",
+        mimetype="application/javascript",
+    )
+
+
+@app.route("/offline.html")
+def offline():
+    return send_from_directory(os.path.join(app.root_path, "static"), "offline.html")
+
+
+from routes.home import home_bp
+from routes.orders import orders_bp
+from routes.products import products_bp
+
+app.register_blueprint(home_bp)
+app.register_blueprint(orders_bp, url_prefix="/orders")
+app.register_blueprint(products_bp, url_prefix="/admin")
+
+with app.app_context():
+    try:
+        db.create_all()
+    except Exception:
+        pass  # tables exist, another worker created them
+
+    # ── Migration: create Store for each existing User that has no Store yet ──
+    # Also handles adding store_id columns to existing tables on upgrade.
+    try:
+        inspector = inspect(db.engine)
+
+        # Ensure store_id column exists on 'order' table (for upgrades from old schema)
+        order_cols = [c["name"] for c in inspector.get_columns("order")]
+        if "store_id" not in order_cols:
+            # MySQL compatible: use backtick quoting for reserved word "order"
+            quote = "`" if ENV == "production" else '"'
+            with db.engine.connect() as conn:
+                conn.execute(text(
+                    f"ALTER TABLE {quote}order{quote} ADD COLUMN store_id INTEGER"
+                ))
+            print("  [Migration] Added store_id column to order table.")
+
+        # Ensure store_id column exists on 'address' table
+        addr_cols = [c["name"] for c in inspector.get_columns("address")]
+        if "store_id" not in addr_cols:
+            with db.engine.connect() as conn:
+                conn.execute(text(
+                    "ALTER TABLE address ADD COLUMN store_id INTEGER"
+                ))
+            print("  [Migration] Added store_id column to address table.")
+
+        # Migrate data: create Store for each non-admin User without one
+        users_without_store = User.query.filter(
+            User.is_admin == False,
+            ~User.stores.any()
+        ).all()
+        if users_without_store:
+            for u in users_without_store:
+                store = Store(user_id=u.id, store_name=u.store_name)
+                db.session.add(store)
+                db.session.flush()  # get store.id
+                # Migrate addresses belonging to this user
+                Address.query.filter_by(user_id=u.id).filter(
+                    (Address.store_id == None) | (Address.store_id == 0)
+                ).update({"store_id": store.id}, synchronize_session=False)
+                # Migrate orders belonging to this user
+                Order.query.filter_by(user_id=u.id).filter(
+                    (Order.store_id == None) | (Order.store_id == 0)
+                ).update({"store_id": store.id}, synchronize_session=False)
+                db.session.commit()  # commit per user to avoid large transactions
+            print(f"  [Migration] Created stores for {len(users_without_store)} existing users.")
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(f"  [Migration] Skipped (this is normal on fresh install): {e}")
+        traceback.print_exc()
+
+    # Create default admin if not exists
+    if not User.query.filter_by(is_admin=True).first():
+        admin = User(
+            store_name="管理员",
+            phone="admin",
+            password_hash=generate_password_hash("REMOVED_ADMIN_PASSWORD", method="pbkdf2:sha256"),
+            is_admin=True,
+        )
+        db.session.add(admin)
+        db.session.commit()
+
+if __name__ == "__main__":
+    env_label = "PRODUCTION" if ENV == "production" else "DEVELOPMENT"
+    print(f"\n  GIFT_ENV = {env_label}")
+    print(f"  DB       = {app.config['SQLALCHEMY_DATABASE_URI']}\n")
+    app.run(debug=True, host="0.0.0.0", port=5000)

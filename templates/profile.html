@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}个人设置{% endblock %}
+{% block content %}
+<h2 class="page-title">个人设置</h2>
+
+{% if success %}
+<p style="color:var(--success);margin-bottom:16px;font-weight:500;">{{ success }}</p>
+{% endif %}
+{% if error %}
+<p style="color:var(--danger);margin-bottom:16px;font-weight:500;">{{ error }}</p>
+{% endif %}
+
+{# ── Account Info ── #}
+<div class="detail-grid" style="margin-bottom:24px;">
+  <h3 style="margin-bottom:16px;font-size:18px;font-weight:700;">账号信息</h3>
+
+  {# Current store display #}
+  <div style="margin-bottom:16px;padding:12px 16px;background:#fdfaf5;border-radius:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <span style="font-weight:600;">当前门店：</span>
+    <span style="font-size:16px;color:var(--primary);">{{ store.store_name if store else '-' }}</span>
+    <a href="{{ url_for('home.store_manage') }}" class="btn btn-outline btn-sm">切换门店</a>
+  </div>
+
+  <form method="POST">
+    <input type="hidden" name="form_type" value="account">
+    <div class="form-group">
+      <label>手机号</label>
+      <input type="text" name="phone" value="{{ user.phone }}" required maxlength="11" pattern="\d{11}" inputmode="numeric">
+      <span class="field-hint">11位数字手机号</span>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:20px 0;">
+    <h4 style="margin-bottom:12px;font-weight:600;">修改密码（不修改请留空）</h4>
+    <div class="form-group">
+      <label>当前密码</label>
+      <div class="pwd-wrap">
+        <input type="password" name="current_password" placeholder="请输入当前密码" style="width:100%;">
+        <button type="button" class="pwd-eye" tabindex="-1" onclick="togglePwd(this)" title="显示密码">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>新密码</label>
+      <div class="pwd-wrap">
+        <input type="password" name="new_password" placeholder="至少6位" minlength="6" style="width:100%;">
+        <button type="button" class="pwd-eye" tabindex="-1" onclick="togglePwd(this)" title="显示密码">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>确认新密码</label>
+      <div class="pwd-wrap">
+        <input type="password" name="new_password2" placeholder="再次输入新密码" minlength="6" style="width:100%;">
+        <button type="button" class="pwd-eye" tabindex="-1" onclick="togglePwd(this)" title="显示密码">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">保存设置</button>
+  </form>
+</div>
+
+{# ── Address Management ── #}
+<div class="detail-grid" id="addresses">
+  <h3 style="margin-bottom:16px;font-size:18px;font-weight:700;">收货地址（{{ store.store_name if store else '当前门店' }}）</h3>
+
+  {% if addresses %}
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>默认</th>
+        <th>收件人</th>
+        <th>电话</th>
+        <th>地址</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for addr in addresses %}
+      <tr>
+        <td>
+          {% if addr.is_default %}
+          <span class="badge badge-shipped">默认</span>
+          {% else %}
+          <form method="POST" action="{{ url_for('home.address_set_default', addr_id=addr.id) }}" style="display:inline;">
+            <button type="submit" class="btn btn-outline btn-sm">设为默认</button>
+          </form>
+          {% endif %}
+        </td>
+        <td>{{ addr.name }}</td>
+        <td>{{ addr.phone }}</td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ addr.address }}">{{ addr.address }}</td>
+        <td>
+          <div style="display:flex;gap:6px;">
+            <button type="button" class="btn btn-outline btn-sm edit-addr-btn"
+                    data-id="{{ addr.id }}"
+                    data-name="{{ addr.name }}"
+                    data-phone="{{ addr.phone }}"
+                    data-address="{{ addr.address }}">编辑</button>
+            <form method="POST" action="{{ url_for('home.address_delete', addr_id=addr.id) }}" onsubmit="return confirm('确定删除该地址？');" style="display:inline;">
+              <button type="submit" class="btn btn-danger btn-sm">删除</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  {# Mobile cards #}
+  <div class="card-list">
+    {% for addr in addresses %}
+    <div class="card-item">
+      <div class="ci-row"><span class="ci-label">收件人</span><span>{{ addr.name }}{% if addr.is_default %} <span class="badge badge-shipped" style="margin-left:6px;">默认</span>{% endif %}</span></div>
+      <div class="ci-row"><span class="ci-label">电话</span><span>{{ addr.phone }}</span></div>
+      <div class="ci-row"><span class="ci-label">地址</span><span>{{ addr.address }}</span></div>
+      <div class="ci-actions">
+        {% if not addr.is_default %}
+        <form method="POST" action="{{ url_for('home.address_set_default', addr_id=addr.id) }}">
+          <button type="submit" class="btn btn-outline btn-sm">设为默认</button>
+        </form>
+        {% endif %}
+        <button type="button" class="btn btn-outline btn-sm edit-addr-btn"
+                data-id="{{ addr.id }}"
+                data-name="{{ addr.name }}"
+                data-phone="{{ addr.phone }}"
+                data-address="{{ addr.address }}">编辑</button>
+        <form method="POST" action="{{ url_for('home.address_delete', addr_id=addr.id) }}" onsubmit="return confirm('确定删除该地址？');">
+          <button type="submit" class="btn btn-danger btn-sm">删除</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color:var(--text-muted);margin-bottom:16px;">暂无收货地址</p>
+  {% endif %}
+
+  {# ── Add / Edit Address Form ── #}
+  <h4 style="margin-top:20px;margin-bottom:12px;font-weight:600;" id="addrFormTitle">添加新地址</h4>
+  <form method="POST" action="{{ url_for('home.address_add') }}" id="addrForm">
+    <div class="form-row">
+      <div class="form-group">
+        <label>收件人姓名</label>
+        <input type="text" name="name" id="addrName" required maxlength="50" placeholder="收件人姓名">
+      </div>
+      <div class="form-group">
+        <label>收件人电话</label>
+        <input type="text" name="phone" id="addrPhone" required maxlength="20" placeholder="收件人电话">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>详细地址</label>
+      <textarea name="address" id="addrAddress" required placeholder="省市区+详细地址"></textarea>
+    </div>
+    <input type="hidden" name="edit_id" id="editId">
+    <button type="submit" class="btn btn-primary" id="addrSubmitBtn">添加地址</button>
+    <button type="button" class="btn btn-outline" id="addrCancelBtn" style="display:none;" onclick="cancelEdit()">取消编辑</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Toggle password visibility
+function togglePwd(btn) {
+  var input = btn.parentElement.querySelector('input');
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.querySelector('svg').innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+  } else {
+    input.type = 'password';
+    btn.querySelector('svg').innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+  }
+}
+
+// Edit address — read from data attributes
+document.querySelectorAll('.edit-addr-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var id = this.dataset.id;
+    var name = this.dataset.name;
+    var phone = this.dataset.phone;
+    var address = this.dataset.address;
+    document.getElementById('editId').value = id;
+    document.getElementById('addrName').value = name;
+    document.getElementById('addrPhone').value = phone;
+    document.getElementById('addrAddress').value = address;
+    document.getElementById('addrSubmitBtn').textContent = '保存修改';
+    document.getElementById('addrCancelBtn').style.display = 'inline-flex';
+    document.getElementById('addrFormTitle').textContent = '编辑地址';
+    document.getElementById('addrForm').action = '/profile/address/' + id + '/edit';
+    document.getElementById('addresses').scrollIntoView({ behavior: 'smooth' });
+  });
+});
+
+function cancelEdit() {
+  document.getElementById('editId').value = '';
+  document.getElementById('addrName').value = '';
+  document.getElementById('addrPhone').value = '';
+  document.getElementById('addrAddress').value = '';
+  document.getElementById('addrSubmitBtn').textContent = '添加地址';
+  document.getElementById('addrCancelBtn').style.display = 'none';
+  document.getElementById('addrFormTitle').textContent = '添加新地址';
+  document.getElementById('addrForm').action = '/profile/address/add';
+}
+</script>
+{% endblock %}

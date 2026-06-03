@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% set is_admin = 1 %}
+{% block title %}商品管理{% endblock %}
+{% block content %}
+<div class="action-bar">
+  <h2 class="page-title" style="margin-bottom:0;">商品管理</h2>
+  <a href="{{ url_for('products.add') }}" class="btn btn-primary">+ 添加商品</a>
+</div>
+
+<div class="search-bar">
+  <input type="text" id="searchInput" placeholder="  搜索商品名称或货架号..." value="{{ q }}" autofocus>
+</div>
+
+{% if products %}
+<!-- Desktop: Table -->
+<div class="table-wrap">
+<table id="productTable">
+  <thead>
+    <tr><th>图片</th><th>名称</th><th>货架号</th><th>价格</th><th>缺货</th><th>时间</th><th>操作</th></tr>
+  </thead>
+  <tbody>
+    {% for p in products %}
+    <tr data-keywords="{{ p.name }} {{ p.shelf_no }}">
+      <td>
+        {% if p.image %}
+        <img src="{{ url_for('uploaded_file', filename=p.image) }}" class="thumb" alt="{{ p.name }}">
+        {% else %}
+        <span style="color:var(--text-muted);font-size:12px;">-</span>
+        {% endif %}
+      </td>
+      <td>{{ p.name }}</td>
+      <td>{{ p.shelf_no }}</td>
+      <td>¥{{ "%.2f"|format(p.price) }}</td>
+      <td>
+        <form method="POST" action="{{ url_for('products.toggle_stock', product_id=p.id) }}" style="display:inline;">
+          <button type="submit" class="btn btn-sm {{ 'btn-danger' if p.is_out_of_stock else 'btn-outline' }}" style="font-size:12px;padding:4px 12px;">
+            {{ '  是' if p.is_out_of_stock else '  否' }}
+          </button>
+        </form>
+      </td>
+      <td>{{ p.created_at.strftime('%m-%d %H:%M') }}</td>
+      <td>
+        <a href="{{ url_for('products.edit', product_id=p.id) }}" class="btn btn-outline btn-sm">编辑</a>
+        <form method="POST" action="{{ url_for('products.delete', product_id=p.id) }}" style="display:inline;" onsubmit="return confirm('确定删除【{{ p.name }}】？');">
+          <button type="submit" class="btn btn-danger btn-sm">删除</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<!-- Mobile: Card list -->
+<div class="card-list" id="cardList">
+  {% for p in products %}
+  <div class="card-item" data-keywords="{{ p.name }} {{ p.shelf_no }}">
+    <div class="ci-row"><span class="ci-label">商品</span><span>
+      {% if p.image %}<img src="{{ url_for('uploaded_file', filename=p.image) }}" class="thumb" alt="{{ p.name }}" style="width:40px;height:40px;vertical-align:middle;margin-right:8px;">{% endif %}
+      {{ p.name }}
+    </span></div>
+    <div class="ci-row"><span class="ci-label">货架号</span><span>{{ p.shelf_no }}</span></div>
+    <div class="ci-row"><span class="ci-label">价格</span><span style="color:var(--danger);font-weight:600;">¥{{ "%.2f"|format(p.price) }}</span></div>
+    <div class="ci-row">
+      <span class="ci-label">缺货</span>
+      <span>
+        <form method="POST" action="{{ url_for('products.toggle_stock', product_id=p.id) }}">
+          <button type="submit" class="btn btn-sm {{ 'btn-danger' if p.is_out_of_stock else 'btn-outline' }}" style="font-size:12px;padding:4px 12px;">
+            {{ '  是' if p.is_out_of_stock else '  否' }}
+          </button>
+        </form>
+      </span>
+    </div>
+    <div class="ci-actions">
+      <a href="{{ url_for('products.edit', product_id=p.id) }}" class="btn btn-outline btn-sm">编辑</a>
+      <form method="POST" action="{{ url_for('products.delete', product_id=p.id) }}" style="display:inline;" onsubmit="return confirm('确定删除【{{ p.name }}】？');">
+        <button type="submit" class="btn btn-danger btn-sm">删除</button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty"><p>还没有商品，点击上方按钮添加</p></div>
+{% endif %}
+
+<script>
+document.getElementById('searchInput').addEventListener('input', function() {
+  var q = this.value.toLowerCase();
+  document.querySelectorAll('#productTable tbody tr, #cardList .card-item').forEach(function(el) {
+    el.style.display = el.dataset.keywords.toLowerCase().includes(q) ? '' : 'none';
+  });
+});
+</script>
+{% endblock %}

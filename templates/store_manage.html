@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% block title %}门店管理{% endblock %}
+{% block content %}
+<h2 class="page-title">门店管理</h2>
+
+{% if success %}
+<p style="color:var(--success);margin-bottom:16px;font-weight:500;">{{ success }}</p>
+{% endif %}
+{% if error %}
+<p style="color:var(--danger);margin-bottom:16px;font-weight:500;">{{ error }}</p>
+{% endif %}
+
+{# ── Store List ── #}
+<div class="detail-grid" style="margin-bottom:24px;">
+  <h3 style="margin-bottom:16px;font-size:18px;font-weight:700;">我的门店</h3>
+
+  {% if stores %}
+  <div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>当前</th>
+        <th>门店名称</th>
+        <th>创建时间</th>
+        <th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in stores %}
+      <tr>
+        <td>
+          {% if current_store and current_store.id == s.id %}
+          <span class="badge badge-shipped">当前</span>
+          {% else %}
+          <a href="{{ url_for('home.store_switch', store_id=s.id) }}" class="btn btn-outline btn-sm">切换</a>
+          {% endif %}
+        </td>
+        <td>{{ s.store_name }}</td>
+        <td>{{ s.created_at.strftime('%Y-%m-%d') }}</td>
+        <td>
+          <div style="display:flex;gap:6px;">
+            <button type="button" class="btn btn-outline btn-sm edit-store-btn"
+                    data-id="{{ s.id }}"
+                    data-name="{{ s.store_name }}">编辑</button>
+            <form method="POST" action="{{ url_for('home.store_manage') }}" onsubmit="return confirm('确定删除门店「{{ s.store_name }}」？\n\n删除后该门店下的收货地址将被清空。\n若有订单则无法删除。');" style="display:inline;">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="store_id" value="{{ s.id }}">
+              <button type="submit" class="btn btn-danger btn-sm">删除</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  {# Mobile cards #}
+  <div class="card-list">
+    {% for s in stores %}
+    <div class="card-item">
+      <div class="ci-row">
+        <span class="ci-label">门店</span>
+        <span>
+          {{ s.store_name }}
+          {% if current_store and current_store.id == s.id %}
+          <span class="badge badge-shipped" style="margin-left:6px;">当前</span>
+          {% endif %}
+        </span>
+      </div>
+      <div class="ci-row"><span class="ci-label">创建时间</span><span>{{ s.created_at.strftime('%Y-%m-%d') }}</span></div>
+      <div class="ci-actions">
+        {% if current_store and current_store.id != s.id %}
+        <a href="{{ url_for('home.store_switch', store_id=s.id) }}" class="btn btn-outline btn-sm">切换至此</a>
+        {% endif %}
+        <button type="button" class="btn btn-outline btn-sm edit-store-btn"
+                data-id="{{ s.id }}"
+                data-name="{{ s.store_name }}">编辑</button>
+        <form method="POST" action="{{ url_for('home.store_manage') }}" onsubmit="return confirm('确定删除门店「{{ s.store_name }}」？');" style="display:inline;">
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="store_id" value="{{ s.id }}">
+          <button type="submit" class="btn btn-danger btn-sm">删除</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color:var(--text-muted);margin-bottom:16px;">暂无门店</p>
+  {% endif %}
+</div>
+
+{# ── Add / Edit Store Form ── #}
+<div class="detail-grid">
+  <h3 style="margin-bottom:16px;font-size:18px;font-weight:700;" id="storeFormTitle">添加新门店</h3>
+  <form method="POST" action="{{ url_for('home.store_manage') }}" id="storeForm">
+    <input type="hidden" name="action" value="add" id="storeAction">
+    <input type="hidden" name="store_id" id="storeId">
+    <div class="form-group">
+      <label>门店名称</label>
+      <input type="text" name="store_name" id="storeName" required maxlength="50" placeholder="请输入门店名称">
+    </div>
+    <button type="submit" class="btn btn-primary" id="storeSubmitBtn">添加门店</button>
+    <button type="button" class="btn btn-outline" id="storeCancelBtn" style="display:none;" onclick="cancelStoreEdit()">取消编辑</button>
+  </form>
+</div>
+
+<div style="margin-top:24px;">
+  <a href="{{ url_for('home.profile') }}" class="btn btn-outline">返回设置</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Edit store — populate form
+document.querySelectorAll('.edit-store-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    var id = this.dataset.id;
+    var name = this.dataset.name;
+    document.getElementById('storeAction').value = 'edit';
+    document.getElementById('storeId').value = id;
+    document.getElementById('storeName').value = name;
+    document.getElementById('storeSubmitBtn').textContent = '保存修改';
+    document.getElementById('storeCancelBtn').style.display = 'inline-flex';
+    document.getElementById('storeFormTitle').textContent = '编辑门店';
+  });
+});
+
+function cancelStoreEdit() {
+  document.getElementById('storeAction').value = 'add';
+  document.getElementById('storeId').value = '';
+  document.getElementById('storeName').value = '';
+  document.getElementById('storeSubmitBtn').textContent = '添加门店';
+  document.getElementById('storeCancelBtn').style.display = 'none';
+  document.getElementById('storeFormTitle').textContent = '添加新门店';
+}
+</script>
+{% endblock %}

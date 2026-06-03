@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}注册{% endblock %}
+{% block content %}
+<div class="auth-page">
+  <div class="auth-card">
+    <h2 class="auth-title">  注册</h2>
+    {% if error %}
+    <p class="auth-error">{{ error }}</p>
+    {% endif %}
+    <form method="POST" id="registerForm">
+      <div class="form-group">
+        <label>店名 *</label>
+        <input type="text" name="store_name" required maxlength="50" placeholder="请输入店名">
+      </div>
+      <div class="form-group">
+        <label>手机号 *</label>
+        <input type="text" name="phone" id="phone" required maxlength="11" placeholder="请输入11位手机号" pattern="\d{11}" inputmode="numeric">
+        <span class="field-hint">请输入11位数字手机号</span>
+      </div>
+      <div class="form-group">
+        <label>密码 *</label>
+        <div class="pwd-wrap">
+          <input type="password" name="password" id="password" required placeholder="请输入密码" minlength="6">
+          <button type="button" class="pwd-eye" onclick="togglePwd('password', this)"></button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>确认密码 *</label>
+        <div class="pwd-wrap">
+          <input type="password" name="password2" id="password2" required placeholder="请再次输入密码" minlength="6">
+          <button type="button" class="pwd-eye" onclick="togglePwd('password2', this)"></button>
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:16px;">注册</button>
+    </form>
+    <p class="auth-link">已有账号？<a href="{{ url_for('home.login') }}">去登录</a></p>
+  </div>
+</div>
+
+<script>
+var eyeOpen = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+var eyeClosed = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+
+function togglePwd(id, btn) {
+  var el = document.getElementById(id);
+  if (el.type === 'password') {
+    el.type = 'text';
+    btn.innerHTML = eyeClosed;
+  } else {
+    el.type = 'password';
+    btn.innerHTML = eyeOpen;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  document.querySelectorAll('.pwd-eye').forEach(function(btn) {
+    btn.innerHTML = eyeOpen;
+  });
+});
+
+document.getElementById('registerForm').addEventListener('submit', function(e) {
+  var phone = document.getElementById('phone').value;
+  if (!/^\d{11}$/.test(phone)) {
+    e.preventDefault();
+    alert('手机号必须是11位数字');
+    return;
+  }
+  var p1 = document.getElementById('password').value;
+  var p2 = document.getElementById('password2').value;
+  if (p1 !== p2) {
+    e.preventDefault();
+    alert('两次输入的密码不一致');
+    return;
+  }
+});
+</script>
+{% endblock %}
