@@ -33,9 +33,18 @@ def login_required(f):
 
 
 def get_current_store():
-    """Return the Store for the current session, or None."""
+    """Return the Store for the current session, or None.
+    Handles old sessions that have user_id but no store_id yet."""
     if "store_id" in session:
-        return Store.query.get(session["store_id"])
+        store = Store.query.get(session["store_id"])
+        if store:
+            return store
+    # Recover: old session or store_id points to deleted store
+    if "user_id" in session:
+        first_store = Store.query.filter_by(user_id=session["user_id"]).first()
+        if first_store:
+            session["store_id"] = first_store.id
+            return first_store
     return None
 
 
@@ -129,7 +138,10 @@ def cart_remove(product_id):
 @home_bp.route("/order/create", methods=["GET", "POST"])
 @login_required
 def checkout():
-    store_id = session.get("store_id")
+    store = get_current_store()
+    if not store:
+        return redirect(url_for("home.store_manage"))
+    store_id = store.id
     if request.method == "POST":
         items, total, _ = get_cart_data()
         if not items:
@@ -151,6 +163,7 @@ def checkout():
 
         order = Order(
             store_id=store_id,
+            user_id=session["user_id"],
             customer_name=customer_name,
             customer_phone=customer_phone,
             customer_address=customer_address,
@@ -437,13 +450,16 @@ def profile():
 @home_bp.route("/profile/address/add", methods=["POST"])
 @login_required
 def address_add():
-    store_id = session.get("store_id")
+    store = get_current_store()
+    if not store:
+        return redirect(url_for("home.store_manage"))
+    store_id = store.id
     name = request.form.get("name", "").strip()
     phone = request.form.get("phone", "").strip()
     address_text = request.form.get("address", "").strip()
     if not name or not phone or not address_text:
         return redirect(url_for("home.profile", _anchor="addresses"))
-    addr = Address(store_id=store_id, name=name, phone=phone, address=address_text)
+    addr = Address(store_id=store_id, user_id=session["user_id"], name=name, phone=phone, address=address_text)
     db.session.add(addr)
     existing = Address.query.filter_by(store_id=store_id).first()
     if existing is None:
@@ -455,8 +471,11 @@ def address_add():
 @home_bp.route("/profile/address/<int:addr_id>/edit", methods=["POST"])
 @login_required
 def address_edit(addr_id):
+    store = get_current_store()
+    if not store:
+        return redirect(url_for("home.store_manage"))
     addr = Address.query.get_or_404(addr_id)
-    if addr.store_id != session.get("store_id"):
+    if addr.store_id != store.id:
         return redirect(url_for("home.profile"))
     addr.name = request.form.get("name", "").strip()
     addr.phone = request.form.get("phone", "").strip()
@@ -470,13 +489,16 @@ def address_edit(addr_id):
 @home_bp.route("/profile/address/<int:addr_id>/delete", methods=["POST"])
 @login_required
 def address_delete(addr_id):
+    store = get_current_store()
+    if not store:
+        return redirect(url_for("home.store_manage"))
     addr = Address.query.get_or_404(addr_id)
-    if addr.store_id != session.get("store_id"):
+    if addr.store_id != store.id:
         return redirect(url_for("home.profile"))
     was_default = addr.is_default
     db.session.delete(addr)
     if was_default:
-        remaining = Address.query.filter_by(store_id=session.get("store_id")).first()
+        remaining = Address.query.filter_by(store_id=store.id).first()
         if remaining:
             remaining.is_default = True
     db.session.commit()
@@ -486,10 +508,13 @@ def address_delete(addr_id):
 @home_bp.route("/profile/address/<int:addr_id>/default", methods=["POST"])
 @login_required
 def address_set_default(addr_id):
+    store = get_current_store()
+    if not store:
+        return redirect(url_for("home.store_manage"))
     addr = Address.query.get_or_404(addr_id)
-    if addr.store_id != session.get("store_id"):
+    if addr.store_id != store.id:
         return redirect(url_for("home.profile"))
-    Address.query.filter_by(store_id=session.get("store_id")).update({"is_default": False})
+    Address.query.filter_by(store_id=store.id).update({"is_default": False})
     addr.is_default = True
     db.session.commit()
     return redirect(url_for("home.profile", _anchor="addresses"))

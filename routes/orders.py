@@ -133,6 +133,19 @@ def update_payment(order_id):
     return redirect(url_for("orders.detail", order_id=order.id))
 
 
+@orders_bp.route("/<int:order_id>/cancel", methods=["POST"])
+def cancel_order(order_id):
+    if "user_id" not in session or "store_id" not in session:
+        return redirect(url_for("home.login"))
+    order = Order.query.get_or_404(order_id)
+    if order.store_id != session["store_id"]:
+        return redirect(url_for("orders.list_orders"))
+    if order.status == "ordered":
+        order.status = "canceled"
+        db.session.commit()
+    return redirect(url_for("orders.detail", order_id=order.id))
+
+
 @orders_bp.route("/<int:order_id>/print")
 def print_order(order_id):
     order = Order.query.get_or_404(order_id)

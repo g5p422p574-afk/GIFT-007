@@ -7,6 +7,7 @@
   <div class="row"><span class="label">状态</span><span class="value">
     {% if order.status == 'shipped' %}<span class="badge badge-shipped">已发货</span>
     {% elif order.status == 'confirmed' %}<span class="badge badge-confirmed">已确认</span>
+    {% elif order.status == 'canceled' %}<span class="badge" style="background:#f1f5f9;color:#64748b;">已取消</span>
     {% else %}<span class="badge badge-ordered">已下单</span>{% endif %}
   </span></div>
   <div class="row"><span class="label">下单时间</span><span class="value">{{ order.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span></div>
@@ -87,6 +88,16 @@
   <div class="row"><span class="label">发货凭证</span><span class="value"><a href="{{ url_for('uploaded_file', filename=order.shipping_image) }}" target="_blank"><img src="{{ url_for('uploaded_file', filename=order.shipping_image) }}" class="preview" alt="发货凭证"></a></span></div>
   {% endif %}
 </div>
+
+{# Client cancel: available before admin confirms #}
+{% if not is_admin and order.status == 'ordered' and session.get('store_id') and session.get('store_id') == order.store_id %}
+<div class="ship-section" style="border-color:#fee2e2;">
+  <h3 style="color:#dc2626;">取消订单</h3>
+  <form method="POST" action="{{ url_for('orders.cancel_order', order_id=order.id) }}" onsubmit="return confirm('确定取消该订单？');">
+    <button type="submit" class="btn btn-danger">确认取消订单</button>
+  </form>
+</div>
+{% endif %}
 
 {# Client payment update: available before order is shipped #}
 {% if not is_admin and session_user and session.get('store_id') and session.get('store_id') == order.store_id and order.status in ('ordered', 'confirmed') %}

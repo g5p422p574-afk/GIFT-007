@@ -59,6 +59,7 @@
       <td>
         {% if o.status == 'shipped' %}<span class="badge badge-shipped">已发货</span>
         {% elif o.status == 'confirmed' %}<span class="badge badge-confirmed">已确认</span>
+        {% elif o.status == 'canceled' %}<span class="badge" style="background:#f1f5f9;color:#64748b;">已取消</span>
         {% else %}<span class="badge badge-ordered">已下单</span>{% endif %}
       </td>
       <td>
@@ -66,6 +67,11 @@
         {% if is_admin and o.status == 'ordered' %}
         <form method="POST" action="{{ url_for('orders.confirm_order', order_id=o.id) }}" style="display:inline;">
           <button type="submit" class="btn btn-sm" style="background:#3b82f6;color:#fff;">确认</button>
+        </form>
+        {% endif %}
+        {% if not is_admin and o.status == 'ordered' %}
+        <form method="POST" action="{{ url_for('orders.cancel_order', order_id=o.id) }}" onsubmit="return confirm('确定取消该订单？');" style="display:inline;">
+          <button type="submit" class="btn btn-danger btn-sm">取消</button>
         </form>
         {% endif %}
         <a href="{{ url_for('orders.detail', order_id=o.id, admin=1 if is_admin else None) }}" class="btn btn-outline btn-sm">详情</a>
@@ -95,6 +101,7 @@
     <div class="ci-row"><span class="ci-label">状态</span><span>
       {% if o.status == 'shipped' %}<span class="badge badge-shipped">已发货</span>
       {% elif o.status == 'confirmed' %}<span class="badge badge-confirmed">已确认</span>
+        {% elif o.status == 'canceled' %}<span class="badge" style="background:#f1f5f9;color:#64748b;">已取消</span>
       {% else %}<span class="badge badge-ordered">已下单</span>{% endif %}
     </span></div>
     <div class="ci-actions">
@@ -103,7 +110,12 @@
         <button type="submit" class="btn btn-sm" style="background:#3b82f6;color:#fff;">确认</button>
       </form>
       {% endif %}
-      <a href="{{ url_for('orders.detail', order_id=o.id, admin=1 if is_admin else None) }}" class="btn btn-outline btn-sm">详情</a>
+        {% if not is_admin and o.status == 'ordered' %}
+        <form method="POST" action="{{ url_for('orders.cancel_order', order_id=o.id) }}" onsubmit="return confirm('确定取消该订单？');" style="display:inline;">
+          <button type="submit" class="btn btn-danger btn-sm">取消</button>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('orders.detail', order_id=o.id, admin=1 if is_admin else None) }}" class="btn btn-outline btn-sm">详情</a>
     </div>
   </div>
   {% endfor %}
