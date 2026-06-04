@@ -46,10 +46,12 @@ def offline():
 from routes.home import home_bp
 from routes.orders import orders_bp
 from routes.products import products_bp
+from routes.api import api_bp
 
 app.register_blueprint(home_bp)
 app.register_blueprint(orders_bp, url_prefix="/orders")
 app.register_blueprint(products_bp, url_prefix="/admin")
+app.register_blueprint(api_bp)
 
 with app.app_context():
     try:
