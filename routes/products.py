@@ -28,9 +28,33 @@ def admin_required(f):
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# Image magic bytes for content-type validation
+IMG_SIGNATURES = {
+    b"\x89PNG": "png",
+    b"\xff\xd8\xff": "jpg",
+    b"GIF8": "gif",
+    b"RIFF": "webp",
+}
+
+def is_valid_image_content(file):
+    """Verify file content matches an image signature."""
+    if not file:
+        return False
+    pos = file.tell()
+    try:
+        header = file.read(12)
+        file.seek(pos)
+        if not header:
+            return False
+        for sig, ext in IMG_SIGNATURES.items():
+            if header.startswith(sig):
+                return True
+        return False
+    except Exception:
+        return False
 
 def save_upload(file):
-    if file and allowed_file(file.filename):
+    if file and allowed_file(file.filename) and is_valid_image_content(file):
         ext = file.filename.rsplit(".", 1)[1].lower()
         fname = f"{uuid.uuid4().hex}.{ext}"
         file.save(os.path.join(current_app.config["UPLOAD_FOLDER"], fname))

@@ -46,12 +46,10 @@ def offline():
 from routes.home import home_bp
 from routes.orders import orders_bp
 from routes.products import products_bp
-from routes.api import api_bp
 
 app.register_blueprint(home_bp)
 app.register_blueprint(orders_bp, url_prefix="/orders")
 app.register_blueprint(products_bp, url_prefix="/admin")
-app.register_blueprint(api_bp)
 
 with app.app_context():
     try:
@@ -115,7 +113,7 @@ with app.app_context():
         admin = User(
             store_name="管理员",
             phone="admin",
-            password_hash=generate_password_hash("REMOVED_ADMIN_PASSWORD", method="pbkdf2:sha256"),
+            password_hash=generate_password_hash(os.environ.get("GIFT_ADMIN_PASSWORD", "REMOVED_ADMIN_PASSWORD"), method="pbkdf2:sha256"),
             is_admin=True,
         )
         db.session.add(admin)

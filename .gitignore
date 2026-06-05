@@ -7,3 +7,27 @@ uploads/*
 venv/
 .venv/
 *.egg-info/
+
+# Environment / secrets
+.env
+*.env
+!example.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# DB backups
+*.sql
+*.sql.gz
+
+# Fix scripts (temporary)
+fix_*.py
+check_db.py
+

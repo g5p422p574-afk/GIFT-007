@@ -1,7 +1,9 @@
 import os
 import re
 import uuid
+import time
 from functools import wraps
+from collections import defaultdict
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, session
 from models import db, Product, User, Store, Order, OrderItem, Address
@@ -9,13 +11,60 @@ from config import ALLOWED_EXTENSIONS
 
 home_bp = Blueprint("home", __name__)
 
+# ── Simple in-memory rate limiter ──
+# Tracks (ip, endpoint) -> list of timestamps
+_rate_limit_store = defaultdict(list)
+_RATE_LIMIT_WINDOW = 60   # seconds
+_RATE_LIMIT_MAX = 10      # max requests per window
+
+
+def rate_limit(f):
+    """Decorator: limit requests to _RATE_LIMIT_MAX per _RATE_LIMIT_WINDOW per IP."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        ip = request.remote_addr or "127.0.0.1"
+        key = (ip, request.endpoint)
+        now = time.time()
+        # Purge old entries
+        _rate_limit_store[key] = [t for t in _rate_limit_store[key] if now - t < _RATE_LIMIT_WINDOW]
+        if len(_rate_limit_store[key]) >= _RATE_LIMIT_MAX:
+            return render_template("login.html", error="请求过于频繁，请稍后再试",
+                                   is_admin=("admin" in (request.endpoint or "")))
+        _rate_limit_store[key].append(now)
+        return f(*args, **kwargs)
+    return decorated
+
 
 def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
+# Image magic bytes for content-type validation
+IMG_SIGNATURES = {
+    b"\x89PNG": "png",
+    b"\xff\xd8\xff": "jpg",
+    b"GIF8": "gif",
+    b"RIFF": "webp",
+}
+
+def is_valid_image_content(file):
+    """Verify file content matches an image signature."""
+    if not file:
+        return False
+    pos = file.tell()
+    try:
+        header = file.read(12)
+        file.seek(pos)
+        if not header:
+            return False
+        for sig, ext in IMG_SIGNATURES.items():
+            if header.startswith(sig):
+                return True
+        return False
+    except Exception:
+        return False
 
 def save_upload(file):
-    if file and allowed_file(file.filename):
+    if file and allowed_file(file.filename) and is_valid_image_content(file):
         ext = file.filename.rsplit(".", 1)[1].lower()
         fname = f"{uuid.uuid4().hex}.{ext}"
         file.save(os.path.join(current_app.config["UPLOAD_FOLDER"], fname))
@@ -196,7 +245,9 @@ def checkout():
 
 
 @home_bp.route("/admin-login", methods=["GET", "POST"])
+@rate_limit
 def admin_login():
+    """Rate-limited admin login."""
     if request.method == "POST":
         phone = request.form.get("phone", "").strip()
         password = request.form.get("password", "").strip()
@@ -213,7 +264,9 @@ def admin_login():
 
 
 @home_bp.route("/login", methods=["GET", "POST"])
+@rate_limit
 def login():
+    """Rate-limited client login."""
     if request.method == "POST":
         phone = request.form.get("phone", "").strip()
         password = request.form.get("password", "").strip()
