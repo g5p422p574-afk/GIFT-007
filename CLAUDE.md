@@ -24,11 +24,11 @@ python app.py
 GIFT_ENV=production python app.py
 ```
 
-The app starts at `http://localhost:5000`. Default admin: `admin` / `REMOVED_ADMIN_PASSWORD`.
+The app starts at `http://localhost:5000`. Default admin: `admin` — password set via `GIFT_ADMIN_PASSWORD` env var.
 
 ## Production Deployment (Alibaba Cloud ECS)
 
-- **Server**: `106.15.61.246` (root / REMOVED_DB_PASSWORD)
+- **Server**: `106.15.61.246` — credentials in local memory, never in git
 - **Project path**: `/var/www/gift/`
 - **Service**: `systemctl restart gift` (gunicorn 2 workers, preload, bind 127.0.0.1:8000)
 - **Nginx**: reverse proxy on port 80 → gunicorn on 8000
