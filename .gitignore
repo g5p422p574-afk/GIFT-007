@@ -1,33 +1,11 @@
 __pycache__/
 *.pyc
-gift.db
-uploads/*
-!uploads/.gitkeep
-.env
+*.pyo
 venv/
 .venv/
-*.egg-info/
-
-# Environment / secrets
-.env
-*.env
-!example.env
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# OS
-.DS_Store
-Thumbs.db
-
-# DB backups
-*.sql
-*.sql.gz
-
-# Fix scripts (temporary)
-fix_*.py
-check_db.py
-
+*.log
+*.log.old
+uploads/
+deploy.py
+.claude/
+gift.db

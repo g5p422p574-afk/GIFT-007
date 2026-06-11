@@ -24,6 +24,7 @@
       <td>¥{{ "%.2f"|format(item.product.price) }}</td>
       <td>
         <form method="POST" action="{{ url_for('home.cart_update', product_id=item.product.id) }}" class="qty-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="button" class="qty-btn qty-minus">−</button>
           <input type="number" name="quantity" value="{{ item.quantity }}" min="0" class="qty-input" style="width:50px;text-align:center;">
           <button type="button" class="qty-btn qty-plus">+</button>
@@ -32,6 +33,7 @@
       <td style="font-weight:600;">¥{{ "%.2f"|format(item.subtotal) }}</td>
       <td>
         <form method="POST" action="{{ url_for('home.cart_remove', product_id=item.product.id) }}" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
           <button type="submit" class="btn btn-danger btn-sm">删除</button>
         </form>
       </td>
@@ -65,6 +67,7 @@
     <div class="ci-row">
       <span class="ci-label">数量</span>
       <form method="POST" action="{{ url_for('home.cart_update', product_id=item.product.id) }}" class="qty-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="button" class="qty-btn qty-minus">−</button>
         <input type="number" name="quantity" value="{{ item.quantity }}" min="0" class="qty-input" style="width:50px;text-align:center;">
         <button type="button" class="qty-btn qty-plus">+</button>
@@ -73,6 +76,7 @@
     <div class="ci-row"><span class="ci-label">小计</span><span style="font-weight:600;color:var(--danger);">¥{{ "%.2f"|format(item.subtotal) }}</span></div>
     <div class="ci-actions">
       <form method="POST" action="{{ url_for('home.cart_remove', product_id=item.product.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <button type="submit" class="btn btn-danger btn-sm">删除</button>
       </form>
     </div>

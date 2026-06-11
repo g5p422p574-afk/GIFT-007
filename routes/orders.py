@@ -1,11 +1,24 @@
 from datetime import datetime
 import os
 import uuid
-from flask import Blueprint, render_template, request, redirect, url_for, current_app, session
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, abort
 from models import db, User, Store, Order, OrderItem
 from config import ALLOWED_EXTENSIONS
+from security import audit, get_real_ip
 
 orders_bp = Blueprint("orders", __name__)
+
+
+def _deny(order, reason="store_id mismatch"):
+    """Log an unauthorized access attempt and abort with 404."""
+    ip = get_real_ip()
+    ua = request.headers.get("User-Agent", "")
+    uid = session.get("user_id")
+    audit.log("unauthorized_access", ip=ip, user_agent=ua, user_id=uid,
+              detail=f"order_id={order.id} {reason}")
+    audit.log("order_404", ip=ip, user_agent=ua, user_id=uid,
+              detail=f"order_id={order.id}")
+    abort(404)
 
 
 def allowed_file(filename):
@@ -62,7 +75,6 @@ def list_orders():
     q = request.args.get("q", "").strip()
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
-    is_admin = request.args.get("admin") == "1" or is_admin_user()
 
     orders = Order.query
     # Non-admin users see only their current store's orders
@@ -97,16 +109,22 @@ def list_orders():
                 o.is_viewed = True
             db.session.commit()
 
-    return render_template("order_list.html", orders=orders, q=q, date_from=date_from, date_to=date_to, is_admin=is_admin, session_user=get_session_user())
+    return render_template("order_list.html", orders=orders, q=q, date_from=date_from, date_to=date_to, is_admin=is_admin_user(), session_user=get_session_user())
 
 
 @orders_bp.route("/<int:order_id>")
 def detail(order_id):
-    is_admin = request.args.get("admin") == "1" or is_admin_user()
     order = Order.query.get_or_404(order_id)
+    # Non-admin users can only view their own store's orders
+    if not is_admin_user():
+        if "user_id" not in session or "store_id" not in session:
+            return redirect(url_for("home.login"))
+        if order.store_id != session["store_id"]:
+            _deny(order)
     if is_admin_user() and not order.is_viewed:
         order.is_viewed = True
         db.session.commit()
+    is_admin = is_admin_user()
     return render_template("order_detail.html", order=order, is_admin=is_admin, session_user=get_session_user())
 
 
@@ -125,7 +143,6 @@ def confirm_order(order_id):
 def ship(order_id):
     if not is_admin_user():
         return redirect(url_for("home.login"))
-    is_admin = request.args.get("admin") == "1" or True
     order = Order.query.get_or_404(order_id)
     tracking_no = request.form.get("tracking_no", "").strip()
     shipping_image = save_upload(request.files.get("shipping_image"))
@@ -138,7 +155,7 @@ def ship(order_id):
         order.status = "shipped"
 
     db.session.commit()
-    return redirect(url_for("orders.detail", order_id=order.id, admin=1 if is_admin else None))
+    return redirect(url_for("orders.detail", order_id=order.id, admin=1))
 
 
 @orders_bp.route("/<int:order_id>/payment/update", methods=["POST"])
@@ -147,7 +164,7 @@ def update_payment(order_id):
         return redirect(url_for("home.login"))
     order = Order.query.get_or_404(order_id)
     if order.store_id != session["store_id"]:
-        return redirect(url_for("orders.list_orders"))
+        _deny(order)
     if order.status not in ("ordered", "confirmed"):
         return redirect(url_for("orders.detail", order_id=order.id))
     new_image = save_upload(request.files.get("payment_image"))
@@ -163,7 +180,7 @@ def cancel_order(order_id):
         return redirect(url_for("home.login"))
     order = Order.query.get_or_404(order_id)
     if order.store_id != session["store_id"]:
-        return redirect(url_for("orders.list_orders"))
+        _deny(order)
     if order.status == "ordered":
         order.status = "canceled"
         db.session.commit()
@@ -173,6 +190,12 @@ def cancel_order(order_id):
 @orders_bp.route("/<int:order_id>/print")
 def print_order(order_id):
     order = Order.query.get_or_404(order_id)
+    # Only admin or the store that owns the order can print
+    if not is_admin_user():
+        if "user_id" not in session or "store_id" not in session:
+            return redirect(url_for("home.login"))
+        if order.store_id != session["store_id"]:
+            _deny(order)
     return render_template("order_print.html", order=order)
 
 
@@ -206,7 +229,7 @@ def request_after_sale(order_id):
     order = Order.query.get_or_404(order_id)
     # Only allow client's own store's orders
     if order.store_id != session["store_id"]:
-        return redirect(url_for("orders.list_orders"))
+        _deny(order)
     # Only allow if order is shipped and no existing after-sale
     if order.status == "shipped" and not order.after_sale_status:
         order.after_sale_status = "pending"

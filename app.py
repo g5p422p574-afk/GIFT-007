@@ -1,10 +1,12 @@
 import os
+from datetime import timedelta
 from werkzeug.security import generate_password_hash
 from flask import Flask, send_from_directory
 from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import Engine
 from config import ENV, SECRET_KEY, SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS, UPLOAD_FOLDER, BASE_DIR
 from models import db, User, Store, Order, Address
+from csrf import csrf_protect
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -12,6 +14,9 @@ app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = SQLALCHEMY_TRACK_MODIFICATIONS
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
+
+csrf_protect(app)
 
 db.init_app(app)
 
@@ -26,6 +31,11 @@ if ENV == "development":
 
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
+    # NOTE: This route serves all uploads (product images, payment proofs,
+    # shipping labels) without authentication because product images appear
+    # on the public home page.  UUID filenames (128-bit entropy) make
+    # enumeration infeasible.  The order detail / print routes now enforce
+    # store-level access control so filenames cannot be leaked via IDOR.
     return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
@@ -123,4 +133,4 @@ if __name__ == "__main__":
     env_label = "PRODUCTION" if ENV == "production" else "DEVELOPMENT"
     print(f"\n  GIFT_ENV = {env_label}")
     print(f"  DB       = {app.config['SQLALCHEMY_DATABASE_URI']}\n")
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    app.run(debug=(ENV == "development"), host="0.0.0.0", port=5000)

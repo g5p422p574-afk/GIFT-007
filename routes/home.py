@@ -5,9 +5,10 @@ import time
 from functools import wraps
 from collections import defaultdict
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import Blueprint, render_template, request, redirect, url_for, current_app, session
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, abort
 from models import db, Product, User, Store, Order, OrderItem, Address
 from config import ALLOWED_EXTENSIONS
+from security import audit, get_real_ip
 
 home_bp = Blueprint("home", __name__)
 
@@ -22,14 +23,19 @@ def rate_limit(f):
     """Decorator: limit requests to _RATE_LIMIT_MAX per _RATE_LIMIT_WINDOW per IP."""
     @wraps(f)
     def decorated(*args, **kwargs):
-        ip = request.remote_addr or "127.0.0.1"
+        ip = get_real_ip()
         key = (ip, request.endpoint)
         now = time.time()
         # Purge old entries
         _rate_limit_store[key] = [t for t in _rate_limit_store[key] if now - t < _RATE_LIMIT_WINDOW]
         if len(_rate_limit_store[key]) >= _RATE_LIMIT_MAX:
-            return render_template("login.html", error="请求过于频繁，请稍后再试",
-                                   is_admin=("admin" in (request.endpoint or "")))
+            # Login endpoints render the login page; all others return a simple
+            # error page so the user isn't shown a confusing login form.
+            is_login = "login" in (request.endpoint or "")
+            if is_login:
+                return render_template("login.html", error="请求过于频繁，请稍后再试",
+                                       is_admin=("admin" in (request.endpoint or "")))
+            return "<!DOCTYPE html><html lang=zh><meta charset=utf-8><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>请求过于频繁</title><style>body{font-family:system-ui,sans-serif;display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f8f9fa;color:#333}div{text-align:center;padding:40px}h1{font-size:24px;margin-bottom:12px}p{color:#666;margin-bottom:24px}a{color:#8b6f5e}</style><div><h1>  请求过于频繁</h1><p>请稍后再试</p><a href=\"javascript:history.back()\">返回上一页</a></div>", 429
         _rate_limit_store[key].append(now)
         return f(*args, **kwargs)
     return decorated
@@ -186,6 +192,7 @@ def cart_remove(product_id):
 
 @home_bp.route("/order/create", methods=["GET", "POST"])
 @login_required
+@rate_limit
 def checkout():
     store = get_current_store()
     if not store:
@@ -257,7 +264,14 @@ def admin_login():
             session["is_admin"] = True
             session.pop("user_id", None)  # clear client login
             session.pop("store_id", None)
+            session.permanent = True
+            audit.log("login_success", ip=get_real_ip(),
+                      user_agent=request.headers.get("User-Agent", ""),
+                      user_id=user.id, detail="admin")
             return redirect(url_for("products.index"))
+        audit.log("login_failed", ip=get_real_ip(),
+                  user_agent=request.headers.get("User-Agent", ""),
+                  detail=f"admin phone={phone}")
         return render_template("login.html", error="管理员账号或密码错误", is_admin=True)
 
     return render_template("login.html", error=None, is_admin=True)
@@ -282,7 +296,14 @@ def login():
                 db.session.add(first_store)
                 db.session.commit()
             session["store_id"] = first_store.id
+            session.permanent = True
+            audit.log("login_success", ip=get_real_ip(),
+                      user_agent=request.headers.get("User-Agent", ""),
+                      user_id=user.id, detail="client")
             return redirect(request.args.get("next") or url_for("home.index"))
+        audit.log("login_failed", ip=get_real_ip(),
+                  user_agent=request.headers.get("User-Agent", ""),
+                  detail=f"phone={phone}")
         return render_template("login.html", error="手机号或密码错误")
 
     return render_template("login.html", error=None)
@@ -328,6 +349,7 @@ def register():
         session["store_id"] = store.id
         session.pop("is_admin", None)
         session.pop("admin_id", None)
+        session.permanent = True
         return redirect(url_for("home.index"))
 
     return render_template("register.html", error=None)
@@ -414,7 +436,7 @@ def store_switch(store_id):
     """Switch the active store."""
     store = Store.query.get_or_404(store_id)
     if store.user_id != session["user_id"]:
-        return redirect(url_for("home.index"))
+        abort(404)
     session["store_id"] = store.id
     # Clear cart when switching stores (cart is store-scoped conceptually)
     return redirect(url_for("home.index"))
@@ -529,7 +551,7 @@ def address_edit(addr_id):
         return redirect(url_for("home.store_manage"))
     addr = Address.query.get_or_404(addr_id)
     if addr.store_id != store.id:
-        return redirect(url_for("home.profile"))
+        abort(404)
     addr.name = request.form.get("name", "").strip()
     addr.phone = request.form.get("phone", "").strip()
     addr.address = request.form.get("address", "").strip()
@@ -547,7 +569,7 @@ def address_delete(addr_id):
         return redirect(url_for("home.store_manage"))
     addr = Address.query.get_or_404(addr_id)
     if addr.store_id != store.id:
-        return redirect(url_for("home.profile"))
+        abort(404)
     was_default = addr.is_default
     db.session.delete(addr)
     if was_default:
@@ -566,7 +588,7 @@ def address_set_default(addr_id):
         return redirect(url_for("home.store_manage"))
     addr = Address.query.get_or_404(addr_id)
     if addr.store_id != store.id:
-        return redirect(url_for("home.profile"))
+        abort(404)
     Address.query.filter_by(store_id=store.id).update({"is_default": False})
     addr.is_default = True
     db.session.commit()

@@ -28,6 +28,7 @@
     <button type="button" class="btn-order" style="background:#999;cursor:not-allowed;" disabled>  缺货中</button>
     {% else %}
     <form method="POST" action="{{ url_for('home.cart_add', product_id=p.id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <button type="submit" class="btn-order">  加入购物车</button>
     </form>
     {% endif %}

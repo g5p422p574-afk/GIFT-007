@@ -6,6 +6,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, curren
 from sqlalchemy import func
 from models import db, Product, User, Store, OrderItem, Order
 from config import ALLOWED_EXTENSIONS
+from security import audit
 
 products_bp = Blueprint("products", __name__)
 
@@ -225,3 +226,35 @@ def process_after_sale(order_id):
         order.after_sale_status = "processing"
     db.session.commit()
     return redirect(url_for("products.after_sales"))
+
+
+@products_bp.route("/security")
+@admin_required
+def security_dashboard():
+    """Admin-only security log viewer with attack detection alerts."""
+    entries = audit.get_recent(300)
+    stats = audit.stats()
+
+    # Classify events for display
+    alerts = []
+    info = []
+    for e in entries:
+        t = e.get("type", "")
+        if any(kw in t for kw in ("probe", "attack", "suspected", "burst")):
+            alerts.append(e)
+        else:
+            info.append(e)
+
+    # Format timestamps
+    def fmt_ts(ts):
+        return datetime.utcfromtimestamp(ts).strftime("%m-%d %H:%M:%S")
+
+    return render_template(
+        "admin_security.html",
+        alerts=alerts[:50],
+        info=info[:50],
+        stats=stats,
+        fmt_ts=fmt_ts,
+        unviewed_count=Order.query.filter_by(is_viewed=False).count(),
+        session_user=get_admin_user(),
+    )

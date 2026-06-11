@@ -1,10 +1,19 @@
-const CACHE_NAME = "gift-v2";
+const CACHE_NAME = "gift-v3";
+
+// Only cache static assets and the public home page.
+// NEVER cache /orders/, /uploads/, /admin/, /profile/, /cart/,
+// /login/, /register/, /store/ — those contain sensitive data.
 const PRE_CACHE = [
   "/",
-  "/static/style.css",
   "/offline.html",
+  "/static/style.css",
   "/static/icons/icon-192.png",
-  "/static/icons/icon-512.png"
+  "/static/icons/icon-512.png",
+];
+
+// Path prefixes that are SAFE to cache at runtime (only static assets).
+const CACHEABLE_PREFIXES = [
+  "/static/",
 ];
 
 self.addEventListener("install", (event) => {
@@ -29,14 +38,21 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Only handle GET requests to our own origin
   if (request.method !== "GET" || !url.protocol.startsWith("http")) return;
 
+  // ── Navigation requests (page loads) ──
+  // Cache only the home page.  All other pages must go to network
+  // (both for freshness and to avoid caching sensitive data).
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          // Only cache the root page; never cache /orders/, /admin/, etc.
+          if (url.pathname === "/" && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
           return response;
         })
         .catch(() => {
@@ -48,17 +64,26 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      const fetchPromise = fetch(request).then((response) => {
-        if (response && response.status === 200) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-        }
-        return response;
-      }).catch(() => {});
-
-      return cached || fetchPromise;
-    })
+  // ── Sub-resource requests (CSS, JS, images, fonts) ──
+  const isCacheable = CACHEABLE_PREFIXES.some((prefix) =>
+    url.pathname.startsWith(prefix)
   );
+
+  if (isCacheable) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        const fetchPromise = fetch(request).then((response) => {
+          if (response && response.status === 200) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        }).catch(() => {});
+
+        return cached || fetchPromise;
+      })
+    );
+  }
+  // All other requests (including /uploads/, /orders/, etc.) — network only,
+  // never cached.
 });

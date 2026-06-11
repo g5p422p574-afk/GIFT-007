@@ -94,6 +94,7 @@
 <div class="ship-section" style="border-color:#fee2e2;">
   <h3 style="color:#dc2626;">取消订单</h3>
   <form method="POST" action="{{ url_for('orders.cancel_order', order_id=order.id) }}" onsubmit="return confirm('确定取消该订单？');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <button type="submit" class="btn btn-danger">确认取消订单</button>
   </form>
 </div>
@@ -104,6 +105,7 @@
 <div class="ship-section">
   <h3>更新付款凭证</h3>
   <form method="POST" action="{{ url_for('orders.update_payment', order_id=order.id) }}" enctype="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
       <label>重新上传付款截图</label>
       <input type="file" name="payment_image" accept="image/*" style="padding:8px;" required>
@@ -133,6 +135,7 @@
 <div class="ship-section">
   <h3>  申请售后</h3>
   <form method="POST" action="{{ url_for('orders.request_after_sale', order_id=order.id) }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="form-group">
       <label>售后原因</label>
       <textarea name="reason" required placeholder="请描述售后原因，如：商品破损、漏发等"></textarea>

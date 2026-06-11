@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% set is_admin = 1 %}
+{% block title %}安全监控{% endblock %}
+{% block content %}
+<h2 class="page-title">  安全监控</h2>
+
+<!-- Stats bar -->
+<div class="stats-grid" style="margin-bottom:24px;">
+  <div class="stat-card stat-today">
+    <div class="stat-label">  24h 告警</div>
+    <div class="stat-revenue" style="font-size:28px;{{ 'color:#dc2626;' if stats.alerts_24h else '' }}">{{ stats.alerts_24h | length }}</div>
+    <div class="stat-sub">条攻击/探测告警</div>
+  </div>
+  <div class="stat-card stat-month">
+    <div class="stat-label">  记录事件</div>
+    <div class="stat-revenue">{{ stats.total_events }}</div>
+    <div class="stat-sub">近 300 条安全日志</div>
+  </div>
+  <div class="stat-card stat-year">
+    <div class="stat-label">  来源 IP</div>
+    <div class="stat-revenue">{{ stats.unique_ips }}</div>
+    <div class="stat-sub">独立访问来源</div>
+  </div>
+  <div class="stat-card stat-all">
+    <div class="stat-label">  事件类型</div>
+    <div class="stat-revenue" style="font-size:20px;">{{ stats.by_type | length }}</div>
+    <div class="stat-sub">种不同事件</div>
+  </div>
+</div>
+
+<!-- Alerts section -->
+<h3 style="margin-bottom:12px;">
+    攻击告警
+  {% if alerts %}
+  <span style="color:#dc2626;font-weight:700;">({{ alerts | length }})</span>
+  {% endif %}
+</h3>
+
+{% if alerts %}
+<div class="table-wrap">
+<table class="cart-table">
+  <thead>
+    <tr>
+      <th>时间</th>
+      <th>类型</th>
+      <th>IP</th>
+      <th>详情</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in alerts %}
+    <tr style="{% if 'probe' in e.type %}background:#fff5f5;{% elif 'brute' in e.type %}background:#fffbf0;{% elif 'csrf' in e.type %}background:#f5f3ff;{% endif %}">
+      <td style="white-space:nowrap;font-size:13px;">{{ fmt_ts(e.ts) }}</td>
+      <td>
+        {% if 'enumeration' in e.type %}
+        <span class="badge" style="background:#fee2e2;color:#dc2626;">  订单探测</span>
+        {% elif 'brute' in e.type %}
+        <span class="badge" style="background:#fef3c7;color:#d97706;">  撞库攻击</span>
+        {% elif 'csrf' in e.type %}
+        <span class="badge" style="background:#ede9fe;color:#7c3aed;">  CSRF 攻击</span>
+        {% elif 'unauthorized' in e.type %}
+        <span class="badge" style="background:#fce7f3;color:#db2777;">  越权访问</span>
+        {% else %}
+        <span class="badge">{{ e.type }}</span>
+        {% endif %}
+      </td>
+      <td style="font-family:monospace;font-size:13px;">{{ e.ip }}</td>
+      <td style="font-size:13px;color:var(--text-muted);max-width:300px;overflow:hidden;text-overflow:ellipsis;">{{ e.detail }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<!-- Mobile cards -->
+<div class="card-list">
+  {% for e in alerts %}
+  <div class="card-item" style="{% if 'probe' in e.type %}border-left:3px solid #dc2626;{% elif 'brute' in e.type %}border-left:3px solid #d97706;{% elif 'csrf' in e.type %}border-left:3px solid #7c3aed;{% endif %}">
+    <div class="ci-row"><span class="ci-label">时间</span><span>{{ fmt_ts(e.ts) }}</span></div>
+    <div class="ci-row"><span class="ci-label">类型</span><span style="font-weight:600;color:#dc2626;">{{ e.type }}</span></div>
+    <div class="ci-row"><span class="ci-label">IP</span><span style="font-family:monospace;">{{ e.ip }}</span></div>
+    <div class="ci-row"><span class="ci-label">详情</span><span>{{ e.detail }}</span></div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty"><p>  暂无攻击告警，系统运行正常</p></div>
+{% endif %}
+
+<!-- Recent events section -->
+<h3 style="margin:24px 0 12px;">最近安全事件</h3>
+
+{% if info %}
+<div class="table-wrap" style="max-height:400px;overflow-y:auto;">
+<table class="cart-table">
+  <thead>
+    <tr>
+      <th>时间</th>
+      <th>类型</th>
+      <th>IP</th>
+      <th>详情</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for e in info %}
+    <tr>
+      <td style="white-space:nowrap;font-size:13px;">{{ fmt_ts(e.ts) }}</td>
+      <td>
+        {% if 'login_success' in e.type %}
+        <span class="badge badge-shipped">登录成功</span>
+        {% elif 'login_failed' in e.type %}
+        <span class="badge badge-ordered">登录失败</span>
+        {% elif 'csrf_failure' in e.type %}
+        <span class="badge" style="background:#ede9fe;color:#7c3aed;">CSRF 失败</span>
+        {% else %}
+        <span class="badge">{{ e.type }}</span>
+        {% endif %}
+      </td>
+      <td style="font-family:monospace;font-size:13px;">{{ e.ip }}</td>
+      <td style="font-size:13px;color:var(--text-muted);max-width:300px;overflow:hidden;text-overflow:ellipsis;">{{ e.detail }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% else %}
+<div class="empty"><p>暂无记录</p></div>
+{% endif %}
+
+{% endblock %}

@@ -39,6 +39,7 @@
 {% endif %}
 
 <form method="POST" enctype="multipart/form-data" style="margin-top:24px;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <h3 style="margin-bottom:16px;">收货信息</h3>
 
   {% if addresses %}
