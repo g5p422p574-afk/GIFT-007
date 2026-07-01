@@ -26,9 +26,15 @@
       <input type="text" name="shelf_no" required maxlength="50" value="{{ product.shelf_no if product else '' }}">
     </div>
   </div>
-  <div class="form-group">
-    <label>价格 *</label>
-    <input type="number" name="price" required step="0.01" min="0" value="{{ product.price if product else '' }}">
+  <div class="form-row">
+    <div class="form-group">
+      <label>SKU</label>
+      <input type="text" name="sku" maxlength="100" placeholder="非必填" value="{{ product.sku if product else '' }}">
+    </div>
+    <div class="form-group">
+      <label>价格 *</label>
+      <input type="number" name="price" required step="0.01" min="0" value="{{ product.price if product else '' }}">
+    </div>
   </div>
   <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:16px;">{{ '保存修改' if product else '添加商品' }}</button>
 </form>

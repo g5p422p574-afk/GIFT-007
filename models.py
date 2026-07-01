@@ -28,6 +28,7 @@ class Product(db.Model):
     image = db.Column(db.String(200), default="")
     name = db.Column(db.String(100), nullable=False)
     shelf_no = db.Column(db.String(50), nullable=False)
+    sku = db.Column(db.String(100), default="")
     price = db.Column(db.Float, nullable=False)
     is_out_of_stock = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -82,3 +83,10 @@ class Address(db.Model):
 
     store = db.relationship("Store", backref="addresses")
     user = db.relationship("User", backref="addresses")
+
+
+class InventorySync(db.Model):
+    """Track which dates have been synced to the external inventory system."""
+    id = db.Column(db.Integer, primary_key=True)
+    sync_date = db.Column(db.Date, nullable=False, unique=True)
+    synced_at = db.Column(db.DateTime, default=datetime.utcnow)

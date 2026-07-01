@@ -10,7 +10,7 @@
     {% elif order.status == 'canceled' %}<span class="badge" style="background:#f1f5f9;color:#64748b;">已取消</span>
     {% else %}<span class="badge badge-ordered">已下单</span>{% endif %}
   </span></div>
-  <div class="row"><span class="label">下单时间</span><span class="value">{{ order.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</span></div>
+  <div class="row"><span class="label">下单时间</span><span class="value">{{ order.created_at|cst('%Y-%m-%d %H:%M:%S') }}</span></div>
   <div class="row"><span class="label">客户姓名</span><span class="value">{{ order.customer_name }}</span></div>
   <div class="row"><span class="label">联系电话</span><span class="value">{{ order.customer_phone }}</span></div>
   <div class="row"><span class="label">收货地址</span><span class="value">{{ order.customer_address }}</span></div>

@@ -13,7 +13,7 @@
     {% for o in orders %}
     {% set item_names = o.items | map(attribute='product.name') | join(', ') %}
     <tr>
-      <td>{{ o.after_sale_created_at.strftime('%m-%d %H:%M') if o.after_sale_created_at else '-' }}</td>
+      <td>{{ (o.after_sale_created_at|cst if o.after_sale_created_at else '-') }}</td>
       <td>{{ item_names | truncate(30) }}</td>
       <td>{{ o.after_sale_reason | truncate(30) }}</td>
       <td>
@@ -37,7 +37,7 @@
   {% for o in orders %}
   {% set item_names = o.items | map(attribute='product.name') | join(', ') %}
   <div class="card-item">
-    <div class="ci-row"><span class="ci-label">时间</span><span>{{ o.after_sale_created_at.strftime('%Y-%m-%d %H:%M') if o.after_sale_created_at else '-' }}</span></div>
+    <div class="ci-row"><span class="ci-label">时间</span><span>{{ (o.after_sale_created_at|cst('%Y-%m-%d %H:%M') if o.after_sale_created_at else '-') }}</span></div>
     <div class="ci-row"><span class="ci-label">商品</span><span>{{ item_names | truncate(30) }}</span></div>
     <div class="ci-row"><span class="ci-label">原因</span><span>{{ o.after_sale_reason }}</span></div>
     <div class="ci-row"><span class="ci-label">状态</span>

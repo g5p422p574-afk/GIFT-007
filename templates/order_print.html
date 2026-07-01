@@ -18,7 +18,7 @@
 
   <div class="print-header">
     <h1>  发货单</h1>
-    <div class="print-no">订单号: {{ order.id }} | 日期: {{ order.created_at.strftime('%Y-%m-%d') }}</div>
+    <div class="print-no">订单号: {{ order.id }} | 日期: {{ order.created_at|cst('%Y-%m-%d') }}</div>
   </div>
 
   <div class="print-section">

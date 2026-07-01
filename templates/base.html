@@ -12,6 +12,20 @@
   <meta name="apple-mobile-web-app-title" content="Gift">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
   {% if csrf_token is defined %}<meta name="csrf-token" content="{{ csrf_token() }}">{% endif %}
+  <script>
+  // Restore scroll position — hide page until scrolled to prevent jitter
+  (function(){
+    var k = window.location.pathname === '/' ? 'gift_scroll_y' : 'gift_scroll_y_' + window.location.pathname.replace(/\//g,'_');
+    var y = sessionStorage.getItem(k);
+    if (y) {
+      sessionStorage.removeItem(k);
+      document.documentElement.style.visibility = 'hidden';
+      var show = function() { window.scrollTo(0, +y); document.documentElement.style.visibility = ''; };
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
+      else show();
+    }
+  })();
+  </script>
 </head>
 <body>
   <nav>
@@ -25,6 +39,7 @@
       </a>
       <a href="{{ url_for('products.index') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.index' else '' }}">  商品管理</a>
       <a href="{{ url_for('products.finance') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.finance' else '' }}">  财务管理</a>
+      <a href="{{ url_for('products.sales') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.sales' else '' }}">  销量统计</a>
       <a href="{{ url_for('products.after_sales') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.after_sales' else '' }}">  售后管理</a>
       <a href="{{ url_for('products.security_dashboard') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.security_dashboard' else '' }}" style="font-size:13px;">  安全</a>
       <span style="flex:1;"></span>
@@ -61,6 +76,25 @@
     {% block content %}{% endblock %}
   </div>
   <script>
+    // ── Scroll position persistence ─────────────────────────────
+    // Saves scroll on submit/navigation so pages can restore on load.
+    (function(){
+      var KEY = 'gift_scroll_y_' + window.location.pathname.replace(/\//g,'_');
+      var timer = 0;
+      window.addEventListener('scroll', function(){
+        clearTimeout(timer);
+        timer = setTimeout(function(){ sessionStorage.setItem(KEY, window.scrollY); }, 100);
+      }, {passive: true});
+      document.addEventListener('submit', function(e){
+        if (e.target.method && e.target.method.toLowerCase() === 'post') {
+          sessionStorage.setItem(KEY, window.scrollY);
+        }
+      }, true);
+      window.addEventListener('beforeunload', function(){
+        sessionStorage.setItem(KEY, window.scrollY);
+      });
+    })();
+
     // ── CSRF auto-injection ────────────────────────────────────
     // Intercept all POST form submissions and inject a hidden
     // csrf_token field so that server-side CSRF validation passes

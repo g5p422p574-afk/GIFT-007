@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import uuid
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, abort
@@ -95,13 +95,25 @@ def list_orders():
             filters = filters | Order.store.has(Store.store_name.contains(q))
         orders = orders.filter(filters)
     if date_from:
-        orders = orders.filter(Order.created_at >= datetime.strptime(date_from, "%Y-%m-%d"))
+        # Convert user's CST date to UTC: start of day CST = previous day 16:00 UTC
+        utc_from = datetime.strptime(date_from, "%Y-%m-%d") - timedelta(hours=8)
+        orders = orders.filter(Order.created_at >= utc_from)
     if date_to:
-        orders = orders.filter(Order.created_at <= datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59))
+        # End of day CST = same day 15:59:59 UTC
+        utc_to = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59) - timedelta(hours=8)
+        orders = orders.filter(Order.created_at <= utc_to)
 
-    orders = orders.order_by(Order.created_at.desc()).all()
+    # Pagination
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+    if per_page not in (20, 50, 100):
+        per_page = 20
+    pagination = orders.order_by(Order.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    orders = pagination.items
 
-    # Admin viewing orders: mark all unviewed as viewed
+    # Admin viewing orders: mark current page unviewed as viewed
     if is_admin_user():
         unviewed = [o for o in orders if not o.is_viewed]
         if unviewed:
@@ -109,7 +121,20 @@ def list_orders():
                 o.is_viewed = True
             db.session.commit()
 
-    return render_template("order_list.html", orders=orders, q=q, date_from=date_from, date_to=date_to, is_admin=is_admin_user(), session_user=get_session_user())
+    # Build base URL for pagination (all params except page & per_page)
+    page_args = {k: v for k, v in request.args.items() if k not in ("page", "per_page")}
+    page_url_from = request.args.get("page", "")
+    # Construct query string manually for the template
+    qs_parts = []
+    for k, v in page_args.items():
+        qs_parts.append(f"{k}={v}")
+    page_url = request.path + "?" + ("&".join(qs_parts) + "&" if qs_parts else "")
+    per_page_val = per_page
+
+    return render_template("order_list.html", orders=orders, pagination=pagination,
+                           q=q, date_from=date_from, date_to=date_to,
+                           is_admin=is_admin_user(), session_user=get_session_user(),
+                           page_url=page_url, per_page=per_page_val)
 
 
 @orders_bp.route("/<int:order_id>")
@@ -136,7 +161,7 @@ def confirm_order(order_id):
     if order.status == "ordered":
         order.status = "confirmed"
         db.session.commit()
-    return redirect(url_for("orders.list_orders", admin=1))
+    return redirect(request.referrer or url_for("orders.list_orders", admin=1))
 
 
 @orders_bp.route("/<int:order_id>/ship", methods=["POST"])

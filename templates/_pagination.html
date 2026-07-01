@@ -1,0 +1,44 @@
+{# Pagination controls — expects: pagination, per_page, page_url #}
+{% if pagination and pagination.pages > 1 %}
+<div class="pagination-bar" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-top:20px;padding:12px 16px;background:#f8fafc;border-radius:8px;font-size:14px;">
+  <span style="color:var(--text-muted);">
+    共 <b>{{ pagination.total }}</b> 条，第 <b>{{ pagination.page }}/{{ pagination.pages }}</b> 页
+  </span>
+
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    {# Per-page selector #}
+    <select onchange="location.href=this.value" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:13px;">
+      {% for n in [20, 50, 100] %}
+      <option value="{{ page_url }}page=1&per_page={{ n }}" {% if per_page|default(20) == n %}selected{% endif %}>每页 {{ n }} 条</option>
+      {% endfor %}
+    </select>
+
+    {# Page navigation #}
+    <div style="display:flex;gap:4px;">
+      {% if pagination.has_prev %}
+      <a href="{{ page_url }}page={{ pagination.prev_num }}&per_page={{ per_page|default(20) }}" class="btn btn-outline btn-sm" style="padding:6px 12px;">上一页</a>
+      {% else %}
+      <span class="btn btn-sm" style="padding:6px 12px;color:#ccc;cursor:default;">上一页</span>
+      {% endif %}
+
+      {% set ns = namespace(start=1, end=1) %}
+      {% set ns.start = [pagination.page - 2, 1] | max %}
+      {% set ns.end = [ns.start + 4, pagination.pages] | min %}
+      {% set ns.start = [ns.end - 4, 1] | max %}
+      {% for p in range(ns.start, ns.end + 1) %}
+        {% if p == pagination.page %}
+        <span class="btn btn-sm" style="padding:6px 12px;background:var(--primary);color:#fff;font-weight:700;border-radius:6px;">{{ p }}</span>
+        {% else %}
+        <a href="{{ page_url }}page={{ p }}&per_page={{ per_page|default(20) }}" class="btn btn-outline btn-sm" style="padding:6px 12px;">{{ p }}</a>
+        {% endif %}
+      {% endfor %}
+
+      {% if pagination.has_next %}
+      <a href="{{ page_url }}page={{ pagination.next_num }}&per_page={{ per_page|default(20) }}" class="btn btn-outline btn-sm" style="padding:6px 12px;">下一页</a>
+      {% else %}
+      <span class="btn btn-sm" style="padding:6px 12px;color:#ccc;cursor:default;">下一页</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endif %}

@@ -40,6 +40,14 @@
 {% endif %}
 
 <script>
+// Save scroll position before add-to-cart submit
+document.addEventListener('submit', function(e) {
+  var form = e.target;
+  if (form.action && form.action.indexOf('/cart/add/') !== -1) {
+    sessionStorage.setItem('gift_scroll_y', window.scrollY);
+  }
+}, true);
+
 const input = document.getElementById('searchInput');
 const grid = document.getElementById('productGrid');
 input.addEventListener('input', function() {

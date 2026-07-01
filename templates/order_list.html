@@ -3,9 +3,10 @@
 {% block content %}
 <h2 class="page-title">订单列表</h2>
 
-<div class="filter-bar">
-  <div class="search-bar" style="flex:1;min-width:200px;margin-bottom:0;">
-    <input type="text" id="searchInput" placeholder="  搜索店名、客户姓名、地址、商品名、快递单号..." value="{{ q }}">
+<div class="filter-bar" style="align-items:center;">
+  <div class="search-bar" style="flex:1;min-width:160px;margin-bottom:0;display:flex;gap:6px;">
+    <input type="text" id="searchInput" placeholder="  搜索店名、客户、地址、商品、快递单号..." value="{{ q }}" style="flex:1;">
+    <button type="button" id="searchBtn" class="btn btn-primary btn-sm">搜索</button>
   </div>
   <div class="date-filter">
     <input type="date" id="dateFrom" name="date_from" value="{{ date_from }}" class="date-input">
@@ -50,7 +51,7 @@
     {% set store_name = o.store.store_name if o.store else '-' %}
     <tr data-keywords="{{ o.customer_name }} {{ o.customer_address }} {{ item_names }} {{ o.tracking_no }} {{ store_name }}">
       {% if is_admin %}<td><input type="checkbox" class="order-check" value="{{ o.id }}"></td>{% endif %}
-      <td>{{ o.created_at.strftime('%m-%d %H:%M') }}</td>
+      <td>{{ o.created_at|cst }}</td>
       {% if is_admin %}<td>{{ store_name }}</td>{% endif %}
       <td>{{ o.customer_name }}</td>
       <td>{{ item_names | truncate(30) }} <span style="color:var(--text-muted);">({{ item_count }}件)</span></td>
@@ -91,7 +92,7 @@
   {% set store_name = o.store.store_name if o.store else '-' %}
   <div class="card-item" data-keywords="{{ o.customer_name }} {{ o.customer_address }} {{ item_names }} {{ o.tracking_no }} {{ store_name }}">
     {% if is_admin %}<div class="ci-row"><span class="ci-label"><input type="checkbox" class="order-check" value="{{ o.id }}"></span><span></span></div>{% endif %}
-    <div class="ci-row"><span class="ci-label">时间</span><span>{{ o.created_at.strftime('%Y-%m-%d %H:%M') }}</span></div>
+    <div class="ci-row"><span class="ci-label">时间</span><span>{{ o.created_at|cst('%Y-%m-%d %H:%M') }}</span></div>
     {% if is_admin %}<div class="ci-row"><span class="ci-label">店名</span><span>{{ store_name }}</span></div>{% endif %}
     <div class="ci-row"><span class="ci-label">客户</span><span>{{ o.customer_name }}</span></div>
     <div class="ci-row"><span class="ci-label">商品</span><span>{{ item_names | truncate(40) }}</span></div>
@@ -124,29 +125,36 @@
 <div class="empty"><p>暂无订单</p></div>
 {% endif %}
 
-<script>
-const input2 = document.getElementById('searchInput');
-input2.addEventListener('input', function() {
-  const q = this.value.toLowerCase();
-  document.querySelectorAll('#orderTable tbody tr, #cardList .card-item').forEach(el => {
-    el.style.display = el.dataset.keywords.toLowerCase().includes(q) ? '' : 'none';
-  });
-});
+{% include '_pagination.html' %}
 
-// Date filter
-document.getElementById('dateFilterBtn').addEventListener('click', function() {
-  const from = document.getElementById('dateFrom').value;
-  const to = document.getElementById('dateTo').value;
-  let url = '/orders/?';
-  if (from) url += 'date_from=' + from + '&';
-  if (to) url += 'date_to=' + to + '&';
-  const q = document.getElementById('searchInput').value.trim();
-  if (q) url += 'q=' + encodeURIComponent(q) + '&';
-  {% if is_admin %}
-  url += 'admin=1';
-  {% endif %}
-  window.location.href = url;
-});
+<script>
+(function() {
+  var input = document.getElementById('searchInput');
+  var btn = document.getElementById('searchBtn');
+  var pp = new URLSearchParams(window.location.search).get('per_page') || 20;
+
+  function buildUrl() {
+    var q = input.value.trim();
+    var from = document.getElementById('dateFrom').value;
+    var to = document.getElementById('dateTo').value;
+    var url = '/orders/?page=1&per_page=' + pp;
+    if (q) url += '&q=' + encodeURIComponent(q);
+    if (from) url += '&date_from=' + from;
+    if (to) url += '&date_to=' + to;
+    {% if is_admin %}url += '&admin=1';{% endif %}
+    return url;
+  }
+
+  function doSearch() { window.location.href = buildUrl(); }
+
+  btn.addEventListener('click', doSearch);
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { clearTimeout(timer); doSearch(); }
+  });
+
+  // Date filter button
+  document.getElementById('dateFilterBtn').addEventListener('click', doSearch);
+})();
 
 // Select all
 function updateSelectAll() {

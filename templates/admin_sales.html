@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% set is_admin = 1 %}
+{% block title %}销量统计{% endblock %}
+{% block content %}
+<h2 class="page-title">  销量统计</h2>
+
+<!-- Filter bar -->
+<form class="filter-bar" method="GET" action="{{ url_for('products.sales') }}">
+  <div class="date-filter">
+    <input type="date" name="date_from" value="{{ date_from }}" class="date-input">
+    <span>至</span>
+    <input type="date" name="date_to" value="{{ date_to }}" class="date-input">
+  </div>
+  <div class="search-bar" style="flex:1;min-width:160px;margin-bottom:0;">
+    <input type="text" name="sku" placeholder="  搜索 SKU 或商品名..." value="{{ sku_q }}">
+  </div>
+  <button type="submit" class="btn btn-primary btn-sm">查询</button>
+  {% if date_from or date_to or sku_q %}
+  <a href="{{ url_for('products.sales') }}" class="btn btn-sm" style="color:var(--danger);">清除</a>
+  {% endif %}
+</form>
+
+<!-- ═══ Sync to Inventory ═══ -->
+{% if inventory_configured %}
+<div style="margin:20px 0;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+  <h3 style="margin:0 0 12px;font-size:16px;">  同步到库存系统</h3>
+  <form method="POST" action="{{ url_for('products.sales_sync') }}" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;" onsubmit="return confirm('确定将该日期的所有已确认订单销量同步到库存系统？');">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label style="font-weight:600;font-size:14px;">同步日期:</label>
+    {% if sync_dates %}
+    <select name="date" style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
+      {% for d in sync_dates %}
+      <option value="{{ d }}" {% if date_from == d %}selected{% endif %}>{{ d }}{% if d in synced_dates %} ✅已同步{% endif %}</option>
+      {% endfor %}
+    </select>
+    {% else %}
+    <input type="date" name="date" value="{{ date_from or '' }}" required class="date-input">
+    {% endif %}
+    <button type="submit" class="btn btn-sm" style="background:#3b82f6;color:#fff;font-size:14px;">  同步出库</button>
+    <span style="font-size:12px;color:var(--text-muted);">将该日所有已确认订单的SKU销量发送到库存系统</span>
+  </form>
+</div>
+{% endif %}
+
+<!-- ═══ Sync feedback ═══ -->
+{% if sync_result or sync_error %}
+<div style="margin-bottom:20px;padding:16px;border-radius:8px;{% if sync_error %}background:#fef2f2;border:1px solid #fecaca;{% else %}background:#f0fdf4;border:1px solid #bbf7d0;{% endif %}">
+  <h4 style="margin:0 0 8px;">{% if sync_error %}  同步失败{% else %}  同步结果{% endif %}</h4>
+  {% if sync_error %}
+  <p style="color:#dc2626;margin:0;font-size:14px;white-space:pre-wrap;">{{ sync_error }}</p>
+  {% endif %}
+  {% if sync_result %}
+  <p style="color:#166534;margin:0;font-size:13px;white-space:pre-wrap;font-family:monospace;">{{ sync_result }}</p>
+  {% endif %}
+  {% if sync_payload %}
+  <details style="margin-top:8px;">
+    <summary style="cursor:pointer;color:var(--text-muted);font-size:13px;">查看发送数据</summary>
+    <pre style="background:#f8f9fa;padding:12px;border-radius:4px;overflow-x:auto;font-size:12px;">{{ sync_payload | tojson(indent=2) }}</pre>
+  </details>
+  {% endif %}
+</div>
+<p style="text-align:center;">
+  <a href="{{ url_for('products.sales') }}" class="btn btn-outline btn-sm">← 返回销量查询</a>
+</p>
+{% else %}
+
+<!-- ═══ Per-SKU totals ═══ -->
+{% if sku_totals %}
+<h3 style="margin:20px 0 12px;">SKU 销量汇总</h3>
+
+<div class="table-wrap">
+<table class="cart-table">
+  <thead>
+    <tr><th>SKU</th><th>商品</th><th>货架号</th><th>销量</th></tr>
+  </thead>
+  <tbody>
+    {% for s in sku_totals %}
+    <tr>
+      <td style="font-family:monospace;font-size:13px;">{{ s.sku or '-' }}</td>
+      <td>{{ s.name }}</td>
+      <td>{{ s.shelf_no }}</td>
+      <td style="font-weight:700;color:var(--danger);">{{ s.total_qty }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<!-- Mobile cards -->
+<div class="card-list">
+  {% for s in sku_totals %}
+  <div class="card-item">
+    <div class="ci-row"><span class="ci-label">SKU</span><span style="font-family:monospace;">{{ s.sku or '-' }}</span></div>
+    <div class="ci-row"><span class="ci-label">商品</span><span>{{ s.name }}</span></div>
+    <div class="ci-row"><span class="ci-label">货架号</span><span>{{ s.shelf_no }}</span></div>
+    <div class="ci-row"><span class="ci-label">销量</span><span style="font-weight:700;color:var(--danger);">{{ s.total_qty }}</span></div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty"><p>暂无匹配的销售数据</p></div>
+{% endif %}
+
+<!-- ═══ Daily detail ═══ -->
+{% if rows %}
+<h3 style="margin:24px 0 12px;">每日明细</h3>
+<div class="table-wrap" style="max-height:500px;overflow-y:auto;">
+<table class="cart-table">
+  <thead>
+    <tr><th>日期</th><th>商品</th><th>SKU</th><th>货架号</th><th>销量</th><th>订单数</th></tr>
+  </thead>
+  <tbody>
+    {% for r in rows %}
+    <tr>
+      <td>{{ r.order_date }}</td>
+      <td>{{ r.name }}</td>
+      <td style="font-family:monospace;font-size:12px;">{{ r.sku or '-' }}</td>
+      <td>{{ r.shelf_no }}</td>
+      <td style="font-weight:600;">{{ r.total_qty }}</td>
+      <td>{{ r.order_count }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<!-- Mobile daily list -->
+<div class="card-list">
+  {% for r in rows %}
+  <div class="card-item">
+    <div class="ci-row"><span class="ci-label">日期</span><span>{{ r.order_date }}</span></div>
+    <div class="ci-row"><span class="ci-label">商品</span><span>{{ r.name }}</span></div>
+    <div class="ci-row"><span class="ci-label">SKU</span><span style="font-family:monospace;">{{ r.sku or '-' }}</span></div>
+    <div class="ci-row"><span class="ci-label">销量</span><span style="font-weight:700;color:var(--danger);">{{ r.total_qty }}</span></div>
+    <div class="ci-row"><span class="ci-label">订单数</span><span>{{ r.order_count }}</span></div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% endif %}{# /sync feedback check #}
+{% endblock %}

@@ -216,6 +216,14 @@ def checkout():
             )
 
         payment_image = save_upload(request.files.get("payment_image"))
+        if not payment_image:
+            addresses = Address.query.filter_by(store_id=store_id).order_by(
+                Address.is_default.desc(), Address.id.desc()
+            ).all()
+            return render_template(
+                "checkout.html", items=items, total=total,
+                error="请上传付款凭证", addresses=addresses, **template_context()
+            )
 
         order = Order(
             store_id=store_id,

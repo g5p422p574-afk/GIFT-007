@@ -5,7 +5,7 @@ from flask import Flask, send_from_directory
 from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import Engine
 from config import ENV, SECRET_KEY, SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS, UPLOAD_FOLDER, BASE_DIR
-from models import db, User, Store, Order, Address
+from models import db, User, Store, Order, Address, InventorySync
 from csrf import csrf_protect
 
 app = Flask(__name__)
@@ -14,9 +14,19 @@ app.config["SQLALCHEMY_DATABASE_URI"] = SQLALCHEMY_DATABASE_URI
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = SQLALCHEMY_TRACK_MODIFICATIONS
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=365)
 
 csrf_protect(app)
+
+
+# Jinja2 filter: convert UTC datetime to CST (UTC+8) for display
+@app.template_filter("cst")
+def _cst_filter(dt, fmt="%m-%d %H:%M"):
+    if dt is None:
+        return ""
+    from datetime import timedelta
+    return (dt + timedelta(hours=8)).strftime(fmt)
+
 
 db.init_app(app)
 
@@ -68,9 +78,16 @@ with app.app_context():
         pass  # tables exist, another worker created them
 
     # ── Migration: create Store for each existing User that has no Store yet ──
-    # Also handles adding store_id columns to existing tables on upgrade.
+    # Also handles adding store_id / sku columns to existing tables on upgrade.
     try:
         inspector = inspect(db.engine)
+
+        # Ensure sku column exists on 'product' table
+        product_cols = [c["name"] for c in inspector.get_columns("product")]
+        if "sku" not in product_cols:
+            with db.engine.connect() as conn:
+                conn.execute(text("ALTER TABLE product ADD COLUMN sku VARCHAR(100) DEFAULT ''"))
+            print("  [Migration] Added sku column to product table.")
 
         # Ensure store_id column exists on 'order' table (for upgrades from old schema)
         order_cols = [c["name"] for c in inspector.get_columns("order")]
@@ -91,6 +108,11 @@ with app.app_context():
                     "ALTER TABLE address ADD COLUMN store_id INTEGER"
                 ))
             print("  [Migration] Added store_id column to address table.")
+
+        # Ensure inventory_sync table exists
+        if "inventory_sync" not in inspector.get_table_names():
+            db.create_all()  # creates any missing tables, including inventory_sync
+            print("  [Migration] Created inventory_sync table.")
 
         # Migrate data: create Store for each non-admin User without one
         users_without_store = User.query.filter(

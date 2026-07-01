@@ -7,8 +7,10 @@
   <a href="{{ url_for('products.add') }}" class="btn btn-primary">+ 添加商品</a>
 </div>
 
-<div class="search-bar">
-  <input type="text" id="searchInput" placeholder="  搜索商品名称或货架号..." value="{{ q }}" autofocus>
+<div class="search-bar" style="display:flex;gap:8px;">
+  <input type="text" id="searchInput" placeholder="  搜索商品名称/货架号/SKU..." value="{{ q }}" autofocus style="flex:1;">
+  <button type="button" id="searchBtn" class="btn btn-primary btn-sm">搜索</button>
+  {% if q %}<a href="?per_page={{ per_page|default(20) }}" class="btn btn-sm" style="color:var(--danger);">清除</a>{% endif %}
 </div>
 
 {% if products %}
@@ -16,11 +18,11 @@
 <div class="table-wrap">
 <table id="productTable">
   <thead>
-    <tr><th>图片</th><th>名称</th><th>货架号</th><th>价格</th><th>缺货</th><th>时间</th><th>操作</th></tr>
+    <tr><th>图片</th><th>名称</th><th>货架号</th><th>SKU</th><th>价格</th><th>缺货</th><th>时间</th><th>操作</th></tr>
   </thead>
   <tbody>
     {% for p in products %}
-    <tr data-keywords="{{ p.name }} {{ p.shelf_no }}">
+    <tr data-keywords="{{ p.name }} {{ p.shelf_no }} {{ p.sku }}">
       <td>
         {% if p.image %}
         <img src="{{ url_for('uploaded_file', filename=p.image) }}" class="thumb" alt="{{ p.name }}">
@@ -30,6 +32,7 @@
       </td>
       <td>{{ p.name }}</td>
       <td>{{ p.shelf_no }}</td>
+      <td style="font-family:monospace;font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ p.sku or '-' }}</td>
       <td>¥{{ "%.2f"|format(p.price) }}</td>
       <td>
         <form method="POST" action="{{ url_for('products.toggle_stock', product_id=p.id) }}" style="display:inline;">
@@ -38,7 +41,7 @@
           </button>
         </form>
       </td>
-      <td>{{ p.created_at.strftime('%m-%d %H:%M') }}</td>
+      <td>{{ p.created_at|cst }}</td>
       <td>
         <a href="{{ url_for('products.edit', product_id=p.id) }}" class="btn btn-outline btn-sm">编辑</a>
         <form method="POST" action="{{ url_for('products.delete', product_id=p.id) }}" style="display:inline;" onsubmit="return confirm('确定删除【{{ p.name }}】？');">
@@ -54,12 +57,13 @@
 <!-- Mobile: Card list -->
 <div class="card-list" id="cardList">
   {% for p in products %}
-  <div class="card-item" data-keywords="{{ p.name }} {{ p.shelf_no }}">
+  <div class="card-item" data-keywords="{{ p.name }} {{ p.shelf_no }} {{ p.sku }}">
     <div class="ci-row"><span class="ci-label">商品</span><span>
       {% if p.image %}<img src="{{ url_for('uploaded_file', filename=p.image) }}" class="thumb" alt="{{ p.name }}" style="width:40px;height:40px;vertical-align:middle;margin-right:8px;">{% endif %}
       {{ p.name }}
     </span></div>
     <div class="ci-row"><span class="ci-label">货架号</span><span>{{ p.shelf_no }}</span></div>
+    {% if p.sku %}<div class="ci-row"><span class="ci-label">SKU</span><span style="font-family:monospace;font-size:13px;">{{ p.sku }}</span></div>{% endif %}
     <div class="ci-row"><span class="ci-label">价格</span><span style="color:var(--danger);font-weight:600;">¥{{ "%.2f"|format(p.price) }}</span></div>
     <div class="ci-row">
       <span class="ci-label">缺货</span>
@@ -84,12 +88,21 @@
 <div class="empty"><p>还没有商品，点击上方按钮添加</p></div>
 {% endif %}
 
+{% include '_pagination.html' %}
+
 <script>
-document.getElementById('searchInput').addEventListener('input', function() {
-  var q = this.value.toLowerCase();
-  document.querySelectorAll('#productTable tbody tr, #cardList .card-item').forEach(function(el) {
-    el.style.display = el.dataset.keywords.toLowerCase().includes(q) ? '' : 'none';
+(function() {
+  var input = document.getElementById('searchInput');
+  var btn = document.getElementById('searchBtn');
+  var pp = new URLSearchParams(window.location.search).get('per_page') || 20;
+  function doSearch() {
+    var q = input.value.trim();
+    window.location.href = '?page=1&per_page=' + pp + (q ? '&q=' + encodeURIComponent(q) : '');
+  }
+  btn.addEventListener('click', doSearch);
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { doSearch(); }
   });
-});
+})();
 </script>
 {% endblock %}
