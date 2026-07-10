@@ -11,7 +11,7 @@
   <div class="product-card" data-keywords="{{ p.name }} {{ p.shelf_no }}">
     <div class="img-wrap">
       {% if p.image %}
-      <img src="{{ url_for('uploaded_file', filename=p.image) }}" alt="{{ p.name }}">
+      <img src="{{ url_for('uploaded_file', filename=p.image) }}" alt="{{ p.name }}" loading="lazy" decoding="async">
       {% else %}
       <span class="no-img">暂无图片</span>
       {% endif %}
