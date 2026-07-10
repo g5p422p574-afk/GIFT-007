@@ -5,7 +5,7 @@ import time
 from functools import wraps
 from collections import defaultdict
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, abort
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, abort, jsonify
 from models import db, Product, User, Store, Order, OrderItem, Address
 from config import ALLOWED_EXTENSIONS
 from security import audit, get_real_ip
@@ -161,11 +161,16 @@ def cart():
 @home_bp.route("/cart/add/<int:product_id>", methods=["POST"])
 def cart_add(product_id):
     if "user_id" not in session:
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": False, "redirect": url_for("home.login")}), 401
         return redirect(url_for("home.login"))
     cart = session.get("cart", {})
     pid = str(product_id)
     cart[pid] = cart.get(pid, 0) + 1
     session["cart"] = cart
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        _, _, count = get_cart_data()
+        return jsonify({"ok": True, "cart_count": count})
     return redirect(url_for("home.index"))
 
 
@@ -179,6 +184,11 @@ def cart_update(product_id):
     else:
         cart[pid] = qty
     session["cart"] = cart
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        items, total, count = get_cart_data()
+        subtotal = next((it["subtotal"] for it in items if it["product"].id == product_id), 0)
+        return jsonify({"ok": True, "cart_count": count, "total": total,
+                        "subtotal": subtotal, "removed": pid not in cart, "empty": count == 0})
     return redirect(url_for("home.cart"))
 
 
@@ -187,6 +197,9 @@ def cart_remove(product_id):
     cart = session.get("cart", {})
     cart.pop(str(product_id), None)
     session["cart"] = cart
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+        _, total, count = get_cart_data()
+        return jsonify({"ok": True, "cart_count": count, "total": total, "empty": count == 0})
     return redirect(url_for("home.cart"))
 
 

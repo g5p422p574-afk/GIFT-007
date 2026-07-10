@@ -40,14 +40,59 @@
 {% endif %}
 
 <script>
-// Save scroll position before add-to-cart submit
+// ── AJAX add-to-cart (no page refresh) ──────────────────
 document.addEventListener('submit', function(e) {
   var form = e.target;
-  if (form.action && form.action.indexOf('/cart/add/') !== -1) {
-    sessionStorage.setItem('gift_scroll_y', window.scrollY);
-  }
+  if (!form.action || form.action.indexOf('/cart/add/') === -1) return;
+  e.preventDefault();
+  var btn = form.querySelector('.btn-order');
+  if (!btn || btn.dataset.loading === '1') return;
+  var origText = btn.textContent;
+  btn.textContent = '加入中...';
+  btn.dataset.loading = '1';
+  var csrf = document.querySelector('meta[name="csrf-token"]').content;
+  fetch(form.action, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'X-CSRF-Token': csrf,
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: 'csrf_token=' + encodeURIComponent(csrf)
+  }).then(function(r) {
+    if (!r.ok) {
+      if (r.status === 401) {
+        r.json().then(function(d) { window.location.href = d.redirect; });
+      } else {
+        btn.textContent = '失败，重试';
+        btn.dataset.loading = '';
+      }
+      return;
+    }
+    return r.json();
+  }).then(function(d) {
+    if (!d) return;
+    if (d.ok) {
+      var badge = document.querySelector('.cart-badge');
+      if (d.cart_count > 0) {
+        if (badge) badge.textContent = d.cart_count;
+        else {
+          var link = document.querySelector('.cart-link');
+          if (link) { var s = document.createElement('span'); s.className = 'cart-badge'; s.textContent = d.cart_count; link.appendChild(s); }
+        }
+      } else if (badge) {
+        badge.remove();
+      }
+      btn.textContent = '✓ 已加入';
+      setTimeout(function() { btn.textContent = origText; btn.dataset.loading = ''; }, 1500);
+    }
+  }).catch(function() {
+    btn.textContent = origText;
+    btn.dataset.loading = '';
+  });
 }, true);
 
+// ── Search filter ───────────────────────────────────────
 const input = document.getElementById('searchInput');
 const grid = document.getElementById('productGrid');
 input.addEventListener('input', function() {

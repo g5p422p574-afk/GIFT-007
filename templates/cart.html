@@ -11,7 +11,7 @@
   </thead>
   <tbody>
     {% for item in items %}
-    <tr>
+    <tr data-pid="{{ item.product.id }}">
       <td>
         <div style="display:flex;align-items:center;gap:10px;">
           {% if item.product.image %}
@@ -30,7 +30,7 @@
           <button type="button" class="qty-btn qty-plus">+</button>
         </form>
       </td>
-      <td style="font-weight:600;">¥{{ "%.2f"|format(item.subtotal) }}</td>
+      <td style="font-weight:600;" class="js-subtotal">¥{{ "%.2f"|format(item.subtotal) }}</td>
       <td>
         <form method="POST" action="{{ url_for('home.cart_remove', product_id=item.product.id) }}" style="display:inline;">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -43,7 +43,7 @@
   <tfoot>
     <tr>
       <td colspan="5" style="text-align:right;font-weight:600;">合计</td>
-      <td style="font-size:18px;font-weight:700;color:var(--danger);">¥{{ "%.2f"|format(total) }}</td>
+      <td style="font-size:18px;font-weight:700;color:var(--danger);" class="js-total">¥{{ "%.2f"|format(total) }}</td>
     </tr>
   </tfoot>
 </table>
@@ -52,7 +52,7 @@
 <!-- Mobile cart -->
 <div class="card-list">
   {% for item in items %}
-  <div class="card-item">
+  <div class="card-item" data-pid="{{ item.product.id }}">
     <div class="ci-row">
       <span class="ci-label">商品</span>
       <span style="display:flex;align-items:center;gap:8px;">
@@ -73,7 +73,7 @@
         <button type="button" class="qty-btn qty-plus">+</button>
       </form>
     </div>
-    <div class="ci-row"><span class="ci-label">小计</span><span style="font-weight:600;color:var(--danger);">¥{{ "%.2f"|format(item.subtotal) }}</span></div>
+    <div class="ci-row"><span class="ci-label">小计</span><span style="font-weight:600;color:var(--danger);" class="js-subtotal">¥{{ "%.2f"|format(item.subtotal) }}</span></div>
     <div class="ci-actions">
       <form method="POST" action="{{ url_for('home.cart_remove', product_id=item.product.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -83,7 +83,7 @@
   </div>
   {% endfor %}
   <div class="card-item" style="background:#fef2f2;">
-    <div class="ci-row"><span class="ci-label" style="font-weight:700;">合计</span><span style="font-size:18px;font-weight:700;color:var(--danger);">¥{{ "%.2f"|format(total) }}</span></div>
+    <div class="ci-row"><span class="ci-label" style="font-weight:700;">合计</span><span style="font-size:18px;font-weight:700;color:var(--danger);" class="js-total">¥{{ "%.2f"|format(total) }}</span></div>
   </div>
 </div>
 
@@ -93,24 +93,90 @@
 </div>
 
 <script>
-document.querySelectorAll('.qty-btn').forEach(btn => {
-  btn.addEventListener('click', function() {
-    const form = this.closest('form');
-    const input = form.querySelector('.qty-input');
-    if (this.classList.contains('qty-plus')) {
-      input.value = parseInt(input.value) + 1;
-    } else {
-      input.value = Math.max(0, parseInt(input.value) - 1);
+(function() {
+  var csrf = document.querySelector('meta[name="csrf-token"]').content;
+
+  function fmt(n) { return '¥' + Number(n).toFixed(2); }
+
+  function updateTotals(d) {
+    document.querySelectorAll('.js-total').forEach(function(el) { el.textContent = fmt(d.total); });
+    var badge = document.querySelector('.cart-badge');
+    if (d.cart_count > 0) {
+      if (badge) badge.textContent = d.cart_count;
+    } else if (badge) {
+      badge.remove();
     }
-    if (parseInt(input.value) === 0) {
-      if (confirm('数量为 0 将从购物车移除，确定？')) {
-        form.submit();
+  }
+
+  function removeRows(pid) {
+    document.querySelectorAll('[data-pid="' + pid + '"]').forEach(function(el) { el.remove(); });
+  }
+
+  // Send a cart form asynchronously; returns Promise or null if already busy
+  function submitCartForm(form) {
+    if (form.dataset.busy === '1') return null;
+    form.dataset.busy = '1';
+    var body = new URLSearchParams(new FormData(form)).toString();
+    return fetch(form.action, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRF-Token': csrf,
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: body
+    }).then(function(r) {
+      if (r.status === 401) { window.location.href = '/login'; return null; }
+      if (!r.ok) throw new Error('bad status');
+      return r.json();
+    }).then(function(d) {
+      form.dataset.busy = '';
+      if (!d || !d.ok) return;
+      if (d.empty) { window.location.reload(); return; }  // show empty-cart state
+      updateTotals(d);
+      var pid = form.action.match(/\/(\d+)$/);
+      pid = pid ? pid[1] : null;
+      if (d.removed && pid) {
+        removeRows(pid);
+      } else if (pid && typeof d.subtotal !== 'undefined') {
+        document.querySelectorAll('[data-pid="' + pid + '"] .js-subtotal').forEach(function(el) {
+          el.textContent = fmt(d.subtotal);
+        });
       }
-    } else {
-      form.submit();
-    }
+    }).catch(function() {
+      form.dataset.busy = '';
+      window.location.reload();  // fallback: fall back to a full refresh
+    });
+  }
+
+  // Quantity +/- buttons
+  document.querySelectorAll('.qty-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var form = this.closest('form');
+      var input = form.querySelector('.qty-input');
+      var v = parseInt(input.value) || 0;
+      v = this.classList.contains('qty-plus') ? v + 1 : Math.max(0, v - 1);
+      if (v === 0 && !confirm('数量为 0 将从购物车移除，确定？')) return;
+      input.value = v;
+      submitCartForm(form);
+    });
   });
-});
+
+  // Manual quantity input change
+  document.querySelectorAll('.qty-input').forEach(function(input) {
+    input.addEventListener('change', function() {
+      submitCartForm(this.closest('form'));
+    });
+  });
+
+  // Remove buttons (intercept submit)
+  document.addEventListener('submit', function(e) {
+    if (e.target.action && e.target.action.indexOf('/cart/remove/') !== -1) {
+      e.preventDefault();
+      submitCartForm(e.target);
+    }
+  }, true);
+})();
 </script>
 {% else %}
 <div class="empty">
