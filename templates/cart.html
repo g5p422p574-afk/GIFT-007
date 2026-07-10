@@ -134,9 +134,10 @@
       if (!d || !d.ok) return;
       if (d.empty) { window.location.reload(); return; }  // show empty-cart state
       updateTotals(d);
-      var pid = form.action.match(/\/(\d+)$/);
-      pid = pid ? pid[1] : null;
-      if (d.removed && pid) {
+      var isRemove = form.action.indexOf('/cart/remove/') !== -1;
+      var m = form.action.match(/\/(\d+)$/);
+      var pid = m ? m[1] : null;
+      if ((isRemove || d.removed) && pid) {
         removeRows(pid);
       } else if (pid && typeof d.subtotal !== 'undefined') {
         document.querySelectorAll('[data-pid="' + pid + '"] .js-subtotal').forEach(function(el) {
