@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 import os
 import uuid
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, abort
+from sqlalchemy.orm import joinedload
 from models import db, User, Store, Order, OrderItem
 from config import ALLOWED_EXTENSIONS
 from security import audit, get_real_ip
@@ -108,7 +109,9 @@ def list_orders():
     per_page = request.args.get("per_page", 20, type=int)
     if per_page not in (20, 50, 100):
         per_page = 20
-    pagination = orders.order_by(Order.created_at.desc()).paginate(
+    pagination = orders.options(
+        joinedload(Order.items).joinedload(OrderItem.product)
+    ).order_by(Order.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
     orders = pagination.items
@@ -139,7 +142,9 @@ def list_orders():
 
 @orders_bp.route("/<int:order_id>")
 def detail(order_id):
-    order = Order.query.get_or_404(order_id)
+    order = Order.query.options(
+        joinedload(Order.items).joinedload(OrderItem.product)
+    ).get_or_404(order_id)
     # Non-admin users can only view their own store's orders
     if not is_admin_user():
         if "user_id" not in session or "store_id" not in session:
@@ -232,7 +237,9 @@ def batch_print():
     if not ids:
         return redirect(url_for("orders.list_orders"))
     id_list = [int(i) for i in ids.split(",") if i.strip().isdigit()]
-    orders = Order.query.filter(Order.id.in_(id_list)).order_by(Order.created_at.desc()).all()
+    orders = Order.query.options(
+        joinedload(Order.items).joinedload(OrderItem.product)
+    ).filter(Order.id.in_(id_list)).order_by(Order.created_at.desc()).all()
     return render_template("order_batch_print.html", orders=orders)
 
 
@@ -240,7 +247,9 @@ def batch_print():
 def my_after_sales():
     if "user_id" not in session or "store_id" not in session:
         return redirect(url_for("home.login"))
-    orders = Order.query.filter(
+    orders = Order.query.options(
+        joinedload(Order.items).joinedload(OrderItem.product)
+    ).filter(
         Order.store_id == session["store_id"],
         Order.after_sale_status.in_(["pending", "processing", "done"])
     ).order_by(Order.after_sale_created_at.desc()).all()

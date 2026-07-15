@@ -35,6 +35,23 @@
   </div>
   {% endfor %}
 </div>
+{% if pagination and pagination.pages > 1 %}
+<div class="pagination" style="display:flex;align-items:center;justify-content:center;gap:6px;margin:20px 0 10px;flex-wrap:wrap;">
+  {% if pagination.has_prev %}
+  <a href="?page={{ pagination.prev_num }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline btn-sm">‹ 上一页</a>
+  {% endif %}
+  {% for pn in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+    {% if pn %}
+    <a href="?page={{ pn }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-sm {{ 'btn-primary' if pn==pagination.page else 'btn-outline' }}" style="min-width:36px;">{{ pn }}</a>
+    {% else %}
+    <span style="padding:0 4px;">…</span>
+    {% endif %}
+  {% endfor %}
+  {% if pagination.has_next %}
+  <a href="?page={{ pagination.next_num }}{% if q %}&q={{ q }}{% endif %}" class="btn btn-outline btn-sm">下一页 ›</a>
+  {% endif %}
+</div>
+{% endif %}
 {% else %}
 <div class="empty"><p>暂无商品</p></div>
 {% endif %}

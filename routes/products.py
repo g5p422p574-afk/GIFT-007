@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, session
 from sqlalchemy import func, text as _sql_text
+from sqlalchemy.orm import joinedload
 from models import db, Product, User, Store, OrderItem, Order, InventorySync
 from config import ALLOWED_EXTENSIONS
 from security import audit
@@ -228,7 +229,9 @@ def after_sales():
             | Order.after_sale_reason.contains(q)
             | Order.store.has(Store.store_name.contains(q))
         )
-    orders = base.order_by(Order.after_sale_created_at.desc()).all()
+    orders = base.options(
+        joinedload(Order.items).joinedload(OrderItem.product)
+    ).order_by(Order.after_sale_created_at.desc()).all()
     unviewed = Order.query.filter_by(is_viewed=False).count()
     return render_template("after_sales.html", orders=orders, q=q, unviewed_count=unviewed, session_user=get_admin_user())
 

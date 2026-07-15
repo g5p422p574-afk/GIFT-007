@@ -143,13 +143,18 @@ def template_context(**kwargs):
 @home_bp.route("/")
 def index():
     q = request.args.get("q", "").strip()
+    page = request.args.get("page", 1, type=int)
+    per_page = 50
     products = Product.query
     if q:
         products = products.filter(
             Product.name.contains(q) | Product.shelf_no.contains(q)
         )
-    products = products.order_by(Product.created_at.desc()).all()
-    return render_template("home.html", products=products, q=q, **template_context())
+    pagination = products.order_by(Product.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    return render_template("home.html", products=pagination.items,
+                           pagination=pagination, q=q, **template_context())
 
 
 @home_bp.route("/cart")
