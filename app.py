@@ -15,6 +15,10 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = SQLALCHEMY_TRACK_MODIFICATIONS
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(days=365)
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
+    "pool_pre_ping": True,   # test connection before use — catches stale connections
+    "pool_recycle": 3600,    # recycle connections older than 1 hour
+}
 
 csrf_protect(app)
 
