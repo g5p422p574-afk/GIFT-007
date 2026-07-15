@@ -144,7 +144,7 @@ def template_context(**kwargs):
 def index():
     q = request.args.get("q", "").strip()
     page = request.args.get("page", 1, type=int)
-    per_page = 50
+    per_page = 52
     products = Product.query
     if q:
         products = products.filter(
