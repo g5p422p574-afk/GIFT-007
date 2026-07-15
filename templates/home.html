@@ -152,7 +152,12 @@ searchInput.addEventListener('input', function() {
 
 // ── AJAX pagination (no full page reload) ──────────────
 document.addEventListener('click', function(e) {
-  var a = e.target.closest('.pagination a');
+  var a = (e.target.closest || function(s) {
+    for (var el = e.target; el; el = el.parentElement) {
+      if (el.matches && el.matches(s)) return el;
+    }
+    return null;
+  })('.pagination a');
   if (!a) return;
   e.preventDefault();
   var url = a.getAttribute('href');
@@ -171,7 +176,10 @@ document.addEventListener('click', function(e) {
         else if (oldGrid) oldGrid.insertAdjacentHTML('afterend', newPag.outerHTML);
       }
       if (history.pushState) { history.pushState(null, '', url); }
-      document.getElementById('productGrid').scrollIntoView({behavior:'smooth'});
+      var g = document.getElementById('productGrid');
+      if (g) g.scrollIntoView({behavior:'smooth'});
+    }).catch(function() {
+      window.location.href = url;
     });
 });
 </script>
