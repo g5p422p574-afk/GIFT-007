@@ -2,7 +2,9 @@
 {% block title %}Gift - 商品列表{% endblock %}
 {% block content %}
 <div class="search-bar">
-  <input type="text" id="searchInput" placeholder="  搜索商品名称或货架号..." value="{{ q }}" autofocus>
+  <form id="searchForm" method="GET" action="{{ url_for('home.index') }}" onsubmit="return document.getElementById('searchInput').value.trim() !== ''">
+    <input type="text" id="searchInput" name="q" placeholder="  搜索商品名称或货架号..." value="{{ q }}" autofocus>
+  </form>
 </div>
 
 {% if products %}
