@@ -60,38 +60,39 @@
 
 <script>
 // ── AJAX add-to-cart (no page refresh) ──────────────────
-document.addEventListener('submit', function(e) {
+function cartAddSubmit(e) {
   var form = e.target;
-  if (!form.action || form.action.indexOf('/cart/add/') === -1) return;
+  if (!form || !form.action || form.action.indexOf('/cart/add/') === -1) return;
   e.preventDefault();
   var btn = form.querySelector('.btn-order');
   if (!btn || btn.dataset.loading === '1') return;
   var origText = btn.textContent;
-  btn.textContent = '加入中...';
-  btn.dataset.loading = '1';
-  var csrf = document.querySelector('meta[name="csrf-token"]').content;
-  fetch(form.action, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'X-CSRF-Token': csrf,
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-    body: 'csrf_token=' + encodeURIComponent(csrf)
-  }).then(function(r) {
-    if (!r.ok) {
-      if (r.status === 401) {
-        r.json().then(function(d) { window.location.href = d.redirect; });
-      } else {
-        btn.textContent = '失败，重试';
-        btn.dataset.loading = '';
+  var done = function(t) { btn.textContent = t; btn.dataset.loading = ''; };
+  try {
+    btn.textContent = '加入中...';
+    btn.dataset.loading = '1';
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    if (!meta) { done(origText); return; }
+    var csrf = meta.content;
+    fetch(form.action, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-CSRF-Token': csrf,
+        'X-Requested-With': 'XMLHttpRequest'
+      },
+      body: 'csrf_token=' + encodeURIComponent(csrf)
+    }).then(function(r) {
+      if (!r.ok) {
+        if (r.status === 401 && r.headers.get('Content-Type').indexOf('json') !== -1) {
+          return r.json().then(function(d) { window.location.href = d.redirect; });
+        }
+        done('失败，重试');
+        return null;
       }
-      return;
-    }
-    return r.json();
-  }).then(function(d) {
-    if (!d) return;
-    if (d.ok) {
+      return r.json();
+    }).then(function(d) {
+      if (!d || !d.ok) return;
       var badge = document.querySelector('.cart-badge');
       if (d.cart_count > 0) {
         if (badge) badge.textContent = d.cart_count;
@@ -102,14 +103,16 @@ document.addEventListener('submit', function(e) {
       } else if (badge) {
         badge.remove();
       }
-      btn.textContent = '✓ 已加入';
-      setTimeout(function() { btn.textContent = origText; btn.dataset.loading = ''; }, 1500);
-    }
-  }).catch(function() {
-    btn.textContent = origText;
-    btn.dataset.loading = '';
-  });
-}, true);
+      done('✓ 已加入');
+      setTimeout(function() { btn.textContent = origText; }, 1500);
+    }).catch(function() {
+      done(origText);
+    });
+  } catch(err) {
+    done(origText);
+  }
+}
+document.addEventListener('submit', cartAddSubmit, true);
 
 // ── Live search (server-side, no Enter needed) ──────────
 var searchInput = document.getElementById('searchInput');
