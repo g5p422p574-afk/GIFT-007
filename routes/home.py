@@ -150,6 +150,11 @@ def index():
         products = products.filter(
             Product.name.contains(q) | Product.shelf_no.contains(q)
         )
+        # Search results: show all (no pagination) so the user can
+        # find products across every page.
+        products = products.order_by(Product.created_at.desc()).all()
+        return render_template("home.html", products=products, q=q,
+                               pagination=None, **template_context())
     pagination = products.order_by(Product.created_at.desc()).paginate(
         page=page, per_page=per_page, error_out=False
     )
