@@ -112,14 +112,43 @@ document.addEventListener('submit', function(e) {
 }, true);
 
 // ── Search filter ───────────────────────────────────────
-const input = document.getElementById('searchInput');
-const grid = document.getElementById('productGrid');
-input.addEventListener('input', function() {
-  const q = this.value.toLowerCase();
-  const cards = grid ? grid.querySelectorAll('.product-card') : [];
-  cards.forEach(c => {
-    c.style.display = c.dataset.keywords.toLowerCase().includes(q) ? '' : 'none';
-  });
+var searchInput = document.getElementById('searchInput');
+var searchTimer = 0;
+var lastSearch = searchInput.value;
+searchInput.addEventListener('input', function() {
+  clearTimeout(searchTimer);
+  var q = this.value.trim();
+  // Don't re-search if the term hasn't changed
+  if (q === lastSearch) return;
+  lastSearch = q;
+  searchTimer = setTimeout(function() {
+    var url = q ? '/?q=' + encodeURIComponent(q) : '/?page=1';
+    fetch(url, { headers: {'X-Requested-With': 'XMLHttpRequest'} })
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(html, 'text/html');
+        // Replace product grid
+        var newGrid = doc.getElementById('productGrid');
+        var oldGrid = document.getElementById('productGrid');
+        if (newGrid && oldGrid) {
+          oldGrid.innerHTML = newGrid.innerHTML;
+          oldGrid.style.display = '';
+          var e = document.querySelector('.empty'); if (e) e.style.display = 'none';
+        }
+        // Update or remove pagination
+        var newPag = doc.querySelector('.pagination');
+        var oldPag = document.querySelector('.pagination');
+        if (newPag) {
+          if (oldPag) oldPag.outerHTML = newPag.outerHTML;
+          else if (oldGrid) oldGrid.insertAdjacentHTML('afterend', newPag.outerHTML);
+        } else if (oldPag) {
+          oldPag.remove();
+        }
+        // Update URL without reload
+        if (history.pushState) { history.pushState(null, '', url); }
+      });
+  }, 300);
 });
 </script>
 {% endblock %}
