@@ -24,7 +24,7 @@
 {% if inventory_configured %}
 <div style="margin:20px 0;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
   <h3 style="margin:0 0 12px;font-size:16px;">  同步到库存系统</h3>
-  <form method="POST" action="{{ url_for('products.sales_sync') }}" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;" onsubmit="return confirm('确定将该日期的所有已确认订单销量同步到库存系统？');">
+  <form method="POST" action="{{ url_for('products.sales_sync') }}" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;" onsubmit="return confirm('请检查当天的订单状态是否已确认！\n\n确定将该日期的所有已确认订单销量同步到库存系统？');">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label style="font-weight:600;font-size:14px;">同步日期:</label>
     {% if sync_dates %}

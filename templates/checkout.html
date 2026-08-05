@@ -38,8 +38,9 @@
 <p style="color:var(--danger);margin:16px 0;">{{ error }}</p>
 {% endif %}
 
-<form method="POST" enctype="multipart/form-data" style="margin-top:24px;">
+<form method="POST" enctype="multipart/form-data" style="margin-top:24px;" id="checkoutForm">
   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="checkout_token" value="{{ checkout_token }}">
   <h3 style="margin-bottom:16px;">收货信息</h3>
 
   {% if addresses %}
@@ -84,6 +85,13 @@
 {% endblock %}
 
 {% block scripts %}
+<script>
+document.getElementById('checkoutForm').addEventListener('submit', function() {
+  var btn = this.querySelector('button[type=submit]');
+  btn.disabled = true;
+  btn.textContent = '提交中...';
+});
+</script>
 {% if addresses %}
 <script>
 (function() {

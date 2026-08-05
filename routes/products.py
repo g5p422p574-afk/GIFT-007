@@ -409,7 +409,23 @@ def sales_sync():
             sync_error=f"{date} 已于 {existing.synced_at.strftime('%m-%d %H:%M:%S')} 同步过，每天只能同步一次",
         )
 
-    # Query sales for the given CST date as a UTC range
+    # CST day UTC range
+    utc_from = datetime.strptime(date, "%Y-%m-%d") - timedelta(hours=8)
+    utc_to = datetime.strptime(date, "%Y-%m-%d").replace(hour=23, minute=59, second=59) - timedelta(hours=8)
+
+    # Require all orders on this date to be confirmed (or shipped)
+    unconfirmed = Order.query.filter(
+        Order.status == "ordered",
+        Order.created_at >= utc_from,
+        Order.created_at <= utc_to,
+    ).count()
+    if unconfirmed > 0:
+        return _sales_render(
+            date, date, "",
+            sync_error=f"{date} 还有 {unconfirmed} 笔订单未确认，请先确认订单后再同步",
+        )
+
+    # Query sales for the given CST date
     # CST day (00:00-23:59) = UTC (previous-day 16:00 to same-day 15:59)
     utc_from = datetime.strptime(date, "%Y-%m-%d") - timedelta(hours=8)
     utc_to = datetime.strptime(date, "%Y-%m-%d").replace(hour=23, minute=59, second=59) - timedelta(hours=8)

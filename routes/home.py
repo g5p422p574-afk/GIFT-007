@@ -222,6 +222,11 @@ def checkout():
         return redirect(url_for("home.store_manage"))
     store_id = store.id
     if request.method == "POST":
+        # Idempotency check — prevent double submit
+        token = request.form.get("checkout_token", "")
+        if not token or token != session.pop("checkout_token", None):
+            return redirect(url_for("orders.list_orders"))
+
         items, total, _ = get_cart_data()
         if not items:
             return redirect(url_for("home.cart"))
@@ -235,7 +240,8 @@ def checkout():
             ).all()
             return render_template(
                 "checkout.html", items=items, total=total,
-                error="请填写姓名、电话和收货地址", addresses=addresses, **template_context()
+                error="请填写姓名、电话和收货地址", addresses=addresses,
+                checkout_token=token, **template_context()
             )
 
         payment_image = save_upload(request.files.get("payment_image"))
@@ -245,7 +251,8 @@ def checkout():
             ).all()
             return render_template(
                 "checkout.html", items=items, total=total,
-                error="请上传付款凭证", addresses=addresses, **template_context()
+                error="请上传付款凭证", addresses=addresses,
+                checkout_token=token, **template_context()
             )
 
         order = Order(
@@ -276,10 +283,12 @@ def checkout():
     items, total, _ = get_cart_data()
     if not items:
         return redirect(url_for("home.cart"))
+    # Generate idempotency token
+    session["checkout_token"] = str(uuid.uuid4())
     addresses = Address.query.filter_by(store_id=store_id).order_by(
         Address.is_default.desc(), Address.id.desc()
     ).all()
-    return render_template("checkout.html", items=items, total=total, error=None, addresses=addresses, **template_context())
+    return render_template("checkout.html", items=items, total=total, error=None, addresses=addresses, checkout_token=session["checkout_token"], **template_context())
 
 
 @home_bp.route("/admin-login", methods=["GET", "POST"])
