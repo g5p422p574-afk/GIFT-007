@@ -100,6 +100,9 @@ def add():
         price = request.form.get("price", "").strip()
         if not name or not shelf_no or not price:
             return render_template("product_form.html", product=None, error="请填写完整信息", unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
+        # SKU uniqueness check (skip empty)
+        if sku and Product.query.filter(Product.sku == sku).first():
+            return render_template("product_form.html", product=None, error=f"SKU '{sku}' 已存在，请使用唯一编码", unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
         image = save_upload(request.files.get("image"))
         product = Product(name=name, shelf_no=shelf_no, sku=sku, price=float(price), image=image)
         db.session.add(product)
@@ -115,7 +118,11 @@ def edit(product_id):
     if request.method == "POST":
         product.name = request.form.get("name", "").strip()
         product.shelf_no = request.form.get("shelf_no", "").strip()
-        product.sku = request.form.get("sku", "").strip()
+        sku = request.form.get("sku", "").strip()
+        # SKU uniqueness check (skip empty, exclude self)
+        if sku and Product.query.filter(Product.sku == sku, Product.id != product_id).first():
+            return render_template("product_form.html", product=product, error=f"SKU '{sku}' 已被其他商品使用", unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
+        product.sku = sku
         product.price = float(request.form.get("price", "").strip())
         img = save_upload(request.files.get("image"))
         if img:

@@ -2,6 +2,7 @@ import os
 import re
 import uuid
 import time
+from datetime import datetime, timedelta
 from functools import wraps
 from collections import defaultdict
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -222,6 +223,18 @@ def checkout():
         return redirect(url_for("home.store_manage"))
     store_id = store.id
     if request.method == "POST":
+        # Order time restriction: Beijing 18:00-24:00 not allowed
+        bj_hour = (datetime.utcnow() + timedelta(hours=8)).hour
+        if bj_hour >= 18:
+            addresses = Address.query.filter_by(store_id=store_id).order_by(
+                Address.is_default.desc(), Address.id.desc()
+            ).all()
+            return render_template(
+                "checkout.html", items=get_cart_data()[0], total=get_cart_data()[1],
+                error="当前时间不允许下单（每天 18:00-24:00 暂停下单），请在其他时间下单",
+                addresses=addresses, checkout_token=session.get("checkout_token", ""), **template_context()
+            )
+
         # Idempotency check — prevent double submit
         token = request.form.get("checkout_token", "")
         if not token or token != session.pop("checkout_token", None):

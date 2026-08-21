@@ -86,7 +86,19 @@
 
 {% block scripts %}
 <script>
-document.getElementById('checkoutForm').addEventListener('submit', function() {
+// Order time restriction: Beijing 18:00-24:00 not allowed
+function isOrderBlocked() {
+  var bj = new Date(new Date().getTime() + 8 * 3600 * 1000);
+  var hour = bj.getUTCHours();
+  return hour >= 18;
+}
+
+document.getElementById('checkoutForm').addEventListener('submit', function(e) {
+  if (isOrderBlocked()) {
+    e.preventDefault();
+    alert('当前时间不允许下单（每天 18:00-24:00 暂停下单），请在其他时间下单');
+    return;
+  }
   var btn = this.querySelector('button[type=submit]');
   btn.disabled = true;
   btn.textContent = '提交中...';

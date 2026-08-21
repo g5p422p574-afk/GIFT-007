@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% block title %}Gift - 商品列表{% endblock %}
 {% block content %}
+<style>
+/* Lightbox overlay for product image zoom */
+.lb-overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); z-index:9999; justify-content:center; align-items:center; cursor:pointer; }
+.lb-overlay.active { display:flex; }
+.lb-overlay img { max-width:90vw; max-height:90vh; object-fit:contain; border-radius:8px; box-shadow:0 4px 30px rgba(0,0,0,0.5); pointer-events:none; }
+.product-card .img-wrap { cursor:pointer; }
+.product-card .img-wrap .no-img { pointer-events:none; }
+</style>
+<div class="lb-overlay" id="lightbox" onclick="this.classList.remove('active')"><img id="lightboxImg" src="" alt=""></div>
 <div class="search-bar">
   <form id="searchForm" method="GET" action="{{ url_for('home.index') }}" onsubmit="return document.getElementById('searchInput').value.trim() !== ''">
     <input type="text" id="searchInput" name="q" placeholder="  搜索商品名称或货架号..." value="{{ q }}" autofocus>
@@ -181,6 +190,15 @@ document.addEventListener('click', function(e) {
     }).catch(function() {
       window.location.href = url;
     });
+});
+// ── Image lightbox (click to zoom) ─────────────────────
+document.getElementById('productGrid').addEventListener('click', function(e) {
+  var img = e.target.closest('.img-wrap img');
+  if (!img) return;
+  var lb = document.getElementById('lightbox');
+  var lbImg = document.getElementById('lightboxImg');
+  lbImg.src = img.src;
+  lb.classList.add('active');
 });
 </script>
 {% endblock %}
