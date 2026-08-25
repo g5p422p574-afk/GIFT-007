@@ -223,17 +223,21 @@ def checkout():
         return redirect(url_for("home.store_manage"))
     store_id = store.id
     if request.method == "POST":
-        # Order time restriction: Beijing 18:00-24:00 not allowed
-        bj_hour = (datetime.utcnow() + timedelta(hours=8)).hour
-        if bj_hour >= 18:
-            addresses = Address.query.filter_by(store_id=store_id).order_by(
-                Address.is_default.desc(), Address.id.desc()
-            ).all()
-            return render_template(
-                "checkout.html", items=get_cart_data()[0], total=get_cart_data()[1],
-                error="当前时间不允许下单（每天 18:00-24:00 暂停下单），请在其他时间下单",
-                addresses=addresses, checkout_token=session.get("checkout_token", ""), **template_context()
-            )
+        # Order time restriction: account 18970067505 can order anytime;
+        # others only 17:00-08:00 Beijing time
+        user = User.query.get(session.get("user_id"))
+        if user and user.phone != "18970067505":
+            bj_hour = (datetime.utcnow() + timedelta(hours=8)).hour
+            if 8 <= bj_hour < 17:
+                addresses = Address.query.filter_by(store_id=store_id).order_by(
+                    Address.is_default.desc(), Address.id.desc()
+                ).all()
+                return render_template(
+                    "checkout.html", items=get_cart_data()[0], total=get_cart_data()[1],
+                    error="当前时间暂停下单（每天 08:00-17:00 暂停，17:00-次日 08:00 开放）",
+                    addresses=addresses, checkout_token=session.get("checkout_token", ""),
+                    time_check_enabled=True, **template_context()
+                )
 
         # Idempotency check — prevent double submit
         token = request.form.get("checkout_token", "")
@@ -254,7 +258,7 @@ def checkout():
             return render_template(
                 "checkout.html", items=items, total=total,
                 error="请填写姓名、电话和收货地址", addresses=addresses,
-                checkout_token=token, **template_context()
+                checkout_token=token, time_check_enabled=True, **template_context()
             )
 
         payment_image = save_upload(request.files.get("payment_image"))
@@ -265,7 +269,7 @@ def checkout():
             return render_template(
                 "checkout.html", items=items, total=total,
                 error="请上传付款凭证", addresses=addresses,
-                checkout_token=token, **template_context()
+                checkout_token=token, time_check_enabled=True, **template_context()
             )
 
         order = Order(
@@ -301,7 +305,9 @@ def checkout():
     addresses = Address.query.filter_by(store_id=store_id).order_by(
         Address.is_default.desc(), Address.id.desc()
     ).all()
-    return render_template("checkout.html", items=items, total=total, error=None, addresses=addresses, checkout_token=session["checkout_token"], **template_context())
+    user = User.query.get(session.get("user_id"))
+    time_check_enabled = not (user and user.phone == "18970067505")
+    return render_template("checkout.html", items=items, total=total, error=None, addresses=addresses, checkout_token=session["checkout_token"], time_check_enabled=time_check_enabled, **template_context())
 
 
 @home_bp.route("/admin-login", methods=["GET", "POST"])
