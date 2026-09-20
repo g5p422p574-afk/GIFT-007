@@ -35,7 +35,9 @@
       <td style="font-family:monospace;font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ p.sku or '-' }}</td>
       <td>¥{{ "%.2f"|format(p.price) }}</td>
       <td>
-        <form method="POST" action="{{ url_for('products.toggle_stock', product_id=p.id) }}" style="display:inline;">
+        <form method="POST" action="{{ url_for('products.toggle_stock', product_id=p.id) }}" style="display:inline;"
+              class="stock-toggle-form" data-product-name="{{ p.name }}"
+              data-stock-action="{{ '恢复为有货' if p.is_out_of_stock else '设为缺货' }}">
           <button type="submit" class="btn btn-sm {{ 'btn-danger' if p.is_out_of_stock else 'btn-outline' }}" style="font-size:12px;padding:4px 12px;">
             {{ '  是' if p.is_out_of_stock else '  否' }}
           </button>
@@ -68,7 +70,9 @@
     <div class="ci-row">
       <span class="ci-label">缺货</span>
       <span>
-        <form method="POST" action="{{ url_for('products.toggle_stock', product_id=p.id) }}">
+        <form method="POST" action="{{ url_for('products.toggle_stock', product_id=p.id) }}"
+              class="stock-toggle-form" data-product-name="{{ p.name }}"
+              data-stock-action="{{ '恢复为有货' if p.is_out_of_stock else '设为缺货' }}">
           <button type="submit" class="btn btn-sm {{ 'btn-danger' if p.is_out_of_stock else 'btn-outline' }}" style="font-size:12px;padding:4px 12px;">
             {{ '  是' if p.is_out_of_stock else '  否' }}
           </button>
@@ -102,6 +106,16 @@
   btn.addEventListener('click', doSearch);
   input.addEventListener('keydown', function(e) {
     if (e.key === 'Enter') { doSearch(); }
+  });
+
+  document.querySelectorAll('.stock-toggle-form').forEach(function(form) {
+    form.addEventListener('submit', function(e) {
+      var productName = form.dataset.productName;
+      var action = form.dataset.stockAction;
+      if (!window.confirm('确定将【' + productName + '】' + action + '吗？')) {
+        e.preventDefault();
+      }
+    });
   });
 })();
 </script>
