@@ -12,6 +12,20 @@ from security import audit
 products_bp = Blueprint("products", __name__)
 
 
+def parse_stock(value):
+    """Parse optional stock input; blank means unlimited inventory."""
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        stock = int(value)
+    except ValueError:
+        raise ValueError("库存必须填写非负整数")
+    if stock < 0:
+        raise ValueError("库存不能小于 0")
+    return stock
+
+
 def get_admin_user():
     if session.get("admin_id"):
         return User.query.get(session["admin_id"])
@@ -103,8 +117,12 @@ def add():
         # SKU uniqueness check (skip empty)
         if sku and Product.query.filter(Product.sku == sku).first():
             return render_template("product_form.html", product=None, error=f"SKU '{sku}' 已存在，请使用唯一编码", unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
+        try:
+            stock = parse_stock(request.form.get("stock"))
+        except ValueError as e:
+            return render_template("product_form.html", product=None, error=str(e), unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
         image = save_upload(request.files.get("image"))
-        product = Product(name=name, shelf_no=shelf_no, sku=sku, price=float(price), image=image)
+        product = Product(name=name, shelf_no=shelf_no, sku=sku, price=float(price), stock=stock, image=image)
         db.session.add(product)
         db.session.commit()
         return redirect(url_for("products.index"))
@@ -122,8 +140,13 @@ def edit(product_id):
         # SKU uniqueness check (skip empty, exclude self)
         if sku and Product.query.filter(Product.sku == sku, Product.id != product_id).first():
             return render_template("product_form.html", product=product, error=f"SKU '{sku}' 已被其他商品使用", unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
+        try:
+            stock = parse_stock(request.form.get("stock"))
+        except ValueError as e:
+            return render_template("product_form.html", product=product, error=str(e), unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
         product.sku = sku
         product.price = float(request.form.get("price", "").strip())
+        product.stock = stock
         img = save_upload(request.files.get("image"))
         if img:
             product.image = img

@@ -175,9 +175,19 @@ def cart_add(product_id):
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return jsonify({"ok": False, "redirect": url_for("home.login")}), 401
         return redirect(url_for("home.login"))
+    product = Product.query.get_or_404(product_id)
     cart = session.get("cart", {})
     pid = str(product_id)
-    cart[pid] = cart.get(pid, 0) + 1
+    next_qty = cart.get(pid, 0) + 1
+    if product.is_out_of_stock or (product.stock is not None and next_qty > product.stock):
+        message = (
+            f"【{product.name}】已缺货" if product.is_out_of_stock
+            else f"【{product.name}】库存不足，当前最多可购买 {product.stock} 件"
+        )
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": False, "message": message}), 409
+        return redirect(url_for("home.index"))
+    cart[pid] = next_qty
     session["cart"] = cart
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         _, _, count = get_cart_data()
@@ -188,6 +198,12 @@ def cart_add(product_id):
 @home_bp.route("/cart/update/<int:product_id>", methods=["POST"])
 def cart_update(product_id):
     qty = int(request.form.get("quantity", 1))
+    product = Product.query.get_or_404(product_id)
+    if qty > 0 and product.stock is not None and qty > product.stock:
+        message = f"【{product.name}】库存不足，当前最多可购买 {product.stock} 件"
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": False, "message": message}), 409
+        return redirect(url_for("home.cart"))
     cart = session.get("cart", {})
     pid = str(product_id)
     if qty <= 0:
@@ -252,14 +268,60 @@ def checkout():
             addresses = Address.query.filter_by(store_id=store_id).order_by(
                 Address.is_default.desc(), Address.id.desc()
             ).all()
+            session["checkout_token"] = token
             return render_template(
                 "checkout.html", items=items, total=total,
                 error="请填写姓名、电话和收货地址", addresses=addresses,
                 checkout_token=token, time_check_enabled=True, **template_context()
             )
 
+        # Lock all products in a stable order, then validate and deduct within
+        # the same transaction so simultaneous orders cannot oversell stock.
+        product_ids = sorted(item["product"].id for item in items)
+        locked_products = (
+            Product.query.filter(Product.id.in_(product_ids))
+            .order_by(Product.id)
+            .with_for_update()
+            .populate_existing()
+            .all()
+        )
+        locked_by_id = {product.id: product for product in locked_products}
+        inventory_errors = []
+        locked_total = 0
+        for item in items:
+            product = locked_by_id.get(item["product"].id)
+            if not product:
+                inventory_errors.append(f"【{item['product'].name}】已缺货")
+                continue
+            item["product"] = product
+            item["subtotal"] = product.price * item["quantity"]
+            locked_total += item["subtotal"]
+            if product.is_out_of_stock:
+                inventory_errors.append(f"【{product.name}】已缺货")
+                continue
+            if product.stock is not None and item["quantity"] > product.stock:
+                inventory_errors.append(
+                    f"【{product.name}】库存不足（需要 {item['quantity']} 件，剩余 {product.stock} 件）"
+                )
+                continue
+        total = locked_total
+
+        if inventory_errors:
+            db.session.rollback()
+            session["checkout_token"] = token
+            addresses = Address.query.filter_by(store_id=store_id).order_by(
+                Address.is_default.desc(), Address.id.desc()
+            ).all()
+            return render_template(
+                "checkout.html", items=items, total=total,
+                error="；".join(inventory_errors), addresses=addresses,
+                checkout_token=token, time_check_enabled=True, **template_context()
+            )
+
         payment_image = save_upload(request.files.get("payment_image"))
         if not payment_image:
+            db.session.rollback()
+            session["checkout_token"] = token
             addresses = Address.query.filter_by(store_id=store_id).order_by(
                 Address.is_default.desc(), Address.id.desc()
             ).all()
@@ -277,18 +339,22 @@ def checkout():
             customer_address=customer_address,
             payment_image=payment_image,
             total_amount=total,
+            inventory_deducted=True,
         )
         db.session.add(order)
         db.session.flush()
 
         for item in items:
+            product = item["product"]
             oi = OrderItem(
                 order_id=order.id,
-                product_id=item["product"].id,
+                product_id=product.id,
                 quantity=item["quantity"],
-                unit_price=item["product"].price,
+                unit_price=product.price,
             )
             db.session.add(oi)
+            if product.stock is not None:
+                product.stock -= item["quantity"]
 
         db.session.commit()
         session["cart"] = {}

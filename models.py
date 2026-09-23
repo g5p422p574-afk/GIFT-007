@@ -30,6 +30,8 @@ class Product(db.Model):
     shelf_no = db.Column(db.String(50), nullable=False)
     sku = db.Column(db.String(100), default="")
     price = db.Column(db.Float, nullable=False)
+    # NULL means inventory is not limited for this product.
+    stock = db.Column(db.Integer, nullable=True)
     is_out_of_stock = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -48,6 +50,8 @@ class Order(db.Model):
     shipping_image = db.Column(db.String(200), default="")
     tracking_no = db.Column(db.String(100), default="")
     is_viewed = db.Column(db.Boolean, default=False)
+    # True only for orders that actually deducted Product.stock.
+    inventory_deducted = db.Column(db.Boolean, default=False)
     # After-sale fields
     after_sale_status = db.Column(db.String(20), default="")
     after_sale_reason = db.Column(db.Text, default="")

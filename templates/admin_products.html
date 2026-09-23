@@ -18,7 +18,7 @@
 <div class="table-wrap">
 <table id="productTable">
   <thead>
-    <tr><th>图片</th><th>名称</th><th>货架号</th><th>SKU</th><th>价格</th><th>缺货</th><th>时间</th><th>操作</th></tr>
+    <tr><th>图片</th><th>名称</th><th>货架号</th><th>SKU</th><th>价格</th><th>库存</th><th>缺货</th><th>时间</th><th>操作</th></tr>
   </thead>
   <tbody>
     {% for p in products %}
@@ -34,6 +34,7 @@
       <td>{{ p.shelf_no }}</td>
       <td style="font-family:monospace;font-size:12px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ p.sku or '-' }}</td>
       <td>¥{{ "%.2f"|format(p.price) }}</td>
+      <td>{{ p.stock if p.stock is not none else '不限' }}</td>
       <td>
         <form method="POST" action="{{ url_for('products.toggle_stock', product_id=p.id) }}" style="display:inline;"
               class="stock-toggle-form" data-product-name="{{ p.name }}"
@@ -67,6 +68,7 @@
     <div class="ci-row"><span class="ci-label">货架号</span><span>{{ p.shelf_no }}</span></div>
     {% if p.sku %}<div class="ci-row"><span class="ci-label">SKU</span><span style="font-family:monospace;font-size:13px;">{{ p.sku }}</span></div>{% endif %}
     <div class="ci-row"><span class="ci-label">价格</span><span style="color:var(--danger);font-weight:600;">¥{{ "%.2f"|format(p.price) }}</span></div>
+    <div class="ci-row"><span class="ci-label">库存</span><span>{{ p.stock if p.stock is not none else '不限' }}</span></div>
     <div class="ci-row">
       <span class="ci-label">缺货</span>
       <span>

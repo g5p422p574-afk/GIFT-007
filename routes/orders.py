@@ -3,7 +3,7 @@ import os
 import uuid
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, abort
 from sqlalchemy.orm import joinedload
-from models import db, User, Store, Order, OrderItem
+from models import db, Product, User, Store, Order, OrderItem
 from config import ALLOWED_EXTENSIONS
 from security import audit, get_real_ip
 
@@ -211,7 +211,23 @@ def cancel_order(order_id):
     order = Order.query.get_or_404(order_id)
     if order.store_id != session["store_id"]:
         _deny(order)
-    if order.status == "ordered":
+    if order.status == "ordered" and order.inventory_deducted:
+        # Return inventory for stock-managed products. Lock rows to avoid
+        # racing with another checkout or stock edit.
+        item_quantities = {item.product_id: item.quantity for item in order.items}
+        products = (
+            Product.query.filter(Product.id.in_(sorted(item_quantities)))
+            .order_by(Product.id)
+            .with_for_update()
+            .all()
+        )
+        for product in products:
+            if product.stock is not None:
+                product.stock += item_quantities[product.id]
+        order.inventory_deducted = False
+        order.status = "canceled"
+        db.session.commit()
+    elif order.status == "ordered":
         order.status = "canceled"
         db.session.commit()
     return redirect(url_for("orders.detail", order_id=order.id))

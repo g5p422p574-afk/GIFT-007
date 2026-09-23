@@ -31,11 +31,11 @@
       <div class="name">{{ p.name }}</div>
       <div class="meta">货架号: {{ p.shelf_no }}</div>
       <div class="price">¥{{ "%.2f"|format(p.price) }}</div>
-      {% if p.is_out_of_stock %}
+      {% if p.is_out_of_stock or (p.stock is not none and p.stock <= 0) %}
       <span class="stock-out">  缺货</span>
       {% endif %}
     </div>
-    {% if p.is_out_of_stock %}
+    {% if p.is_out_of_stock or (p.stock is not none and p.stock <= 0) %}
     <button type="button" class="btn-order" style="background:#999;cursor:not-allowed;" disabled>  缺货中</button>
     {% else %}
     <form method="POST" action="{{ url_for('home.cart_add', product_id=p.id) }}">
@@ -92,6 +92,13 @@ function cartAddSubmit(e) {
       },
       body: 'csrf_token=' + encodeURIComponent(csrf)
     }).then(function(r) {
+      if (r.status === 409) {
+        return r.json().then(function(d) {
+          done(d.message || '库存不足');
+          setTimeout(function() { btn.textContent = origText; }, 2000);
+          return null;
+        });
+      }
       if (!r.ok) {
         if (r.status === 401 && r.headers.get('Content-Type').indexOf('json') !== -1) {
           return r.json().then(function(d) { window.location.href = d.redirect; });

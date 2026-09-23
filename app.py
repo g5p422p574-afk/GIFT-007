@@ -82,7 +82,7 @@ with app.app_context():
         pass  # tables exist, another worker created them
 
     # ── Migration: create Store for each existing User that has no Store yet ──
-    # Also handles adding store_id / sku columns to existing tables on upgrade.
+    # Also handles adding store_id / sku / stock columns to existing tables on upgrade.
     try:
         inspector = inspect(db.engine)
 
@@ -92,6 +92,12 @@ with app.app_context():
             with db.engine.connect() as conn:
                 conn.execute(text("ALTER TABLE product ADD COLUMN sku VARCHAR(100) DEFAULT ''"))
             print("  [Migration] Added sku column to product table.")
+
+        # Nullable stock: NULL means unlimited inventory.
+        if "stock" not in product_cols:
+            with db.engine.connect() as conn:
+                conn.execute(text("ALTER TABLE product ADD COLUMN stock INTEGER NULL"))
+            print("  [Migration] Added stock column to product table.")
 
         # Ensure store_id column exists on 'order' table (for upgrades from old schema)
         order_cols = [c["name"] for c in inspector.get_columns("order")]
@@ -103,6 +109,17 @@ with app.app_context():
                     f"ALTER TABLE {quote}order{quote} ADD COLUMN store_id INTEGER"
                 ))
             print("  [Migration] Added store_id column to order table.")
+
+        # Old orders predate local stock tracking and must not add stock back
+        # if they are canceled after this upgrade.
+        if "inventory_deducted" not in order_cols:
+            quote = "`" if ENV == "production" else '"'
+            with db.engine.connect() as conn:
+                conn.execute(text(
+                    f"ALTER TABLE {quote}order{quote} "
+                    "ADD COLUMN inventory_deducted BOOLEAN DEFAULT 0"
+                ))
+            print("  [Migration] Added inventory_deducted column to order table.")
 
         # Ensure store_id column exists on 'address' table
         addr_cols = [c["name"] for c in inspector.get_columns("address")]
