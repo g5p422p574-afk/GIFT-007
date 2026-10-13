@@ -233,6 +233,30 @@ def cancel_order(order_id):
     return redirect(url_for("orders.detail", order_id=order.id))
 
 
+@orders_bp.route("/<int:order_id>/reorder", methods=["POST"])
+def reorder(order_id):
+    """Copy an order's product quantities into the current store's cart."""
+    if "user_id" not in session or "store_id" not in session:
+        return redirect(url_for("home.login"))
+
+    order = Order.query.options(joinedload(Order.items)).get_or_404(order_id)
+    if order.store_id != session["store_id"]:
+        _deny(order)
+
+    quantities = {}
+    for item in order.items:
+        quantities[item.product_id] = quantities.get(item.product_id, 0) + item.quantity
+
+    cart = session.get("cart", {})
+    for product_id, quantity in quantities.items():
+        # Preserve unrelated cart items, but make reordered products match the
+        # original order exactly instead of accumulating duplicate quantities.
+        cart[str(product_id)] = quantity
+    session["cart"] = cart
+
+    return redirect(url_for("home.cart"))
+
+
 @orders_bp.route("/<int:order_id>/print")
 def print_order(order_id):
     order = Order.query.get_or_404(order_id)

@@ -75,6 +75,12 @@
           <button type="submit" class="btn btn-danger btn-sm">取消</button>
         </form>
         {% endif %}
+        {% if not is_admin %}
+        <form method="POST" action="{{ url_for('orders.reorder', order_id=o.id) }}" style="display:inline;">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-primary btn-sm">再来一单</button>
+        </form>
+        {% endif %}
         <a href="{{ url_for('orders.detail', order_id=o.id, admin=1 if is_admin else None) }}" class="btn btn-outline btn-sm">详情</a>
         </div>
       </td>
@@ -114,6 +120,12 @@
         {% if not is_admin and o.status == 'ordered' %}
         <form method="POST" action="{{ url_for('orders.cancel_order', order_id=o.id) }}" onsubmit="return confirm('确定取消该订单？');" style="display:inline;">
           <button type="submit" class="btn btn-danger btn-sm">取消</button>
+        </form>
+        {% endif %}
+        {% if not is_admin %}
+        <form method="POST" action="{{ url_for('orders.reorder', order_id=o.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button type="submit" class="btn btn-primary btn-sm">再来一单</button>
         </form>
         {% endif %}
         <a href="{{ url_for('orders.detail', order_id=o.id, admin=1 if is_admin else None) }}" class="btn btn-outline btn-sm">详情</a>
