@@ -38,6 +38,12 @@
         {% endif %}
       </a>
       <a href="{{ url_for('products.index') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.index' else '' }}">  商品管理</a>
+      <a href="{{ url_for('products.inventory_alerts') }}" class="notify-link {{ 'active' if request.endpoint and request.endpoint == 'products.inventory_alerts' else '' }}">
+        库存预警
+        {% if low_stock_count is defined and low_stock_count > 0 %}
+        <span class="cart-badge">{{ low_stock_count if low_stock_count < 100 else '99+' }}</span>
+        {% endif %}
+      </a>
       <a href="{{ url_for('products.finance') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.finance' else '' }}">  财务管理</a>
       <a href="{{ url_for('products.sales') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.sales' else '' }}">  销量统计</a>
       <a href="{{ url_for('products.after_sales') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.after_sales' else '' }}">  售后管理</a>

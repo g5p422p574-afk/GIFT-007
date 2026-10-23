@@ -26,6 +26,29 @@ def parse_stock(value):
     return stock
 
 
+def parse_low_stock_threshold(value):
+    """Parse an optional warning threshold; blank disables warnings."""
+    value = (value or "").strip()
+    if not value:
+        return None
+    try:
+        threshold = int(value)
+    except ValueError:
+        raise ValueError("库存预警阈值必须填写非负整数")
+    if threshold < 0:
+        raise ValueError("库存预警阈值不能小于 0")
+    return threshold
+
+
+def low_stock_products_query():
+    """Products whose finite stock has reached their configured threshold."""
+    return Product.query.filter(
+        Product.stock.isnot(None),
+        Product.low_stock_threshold.isnot(None),
+        Product.stock <= Product.low_stock_threshold,
+    )
+
+
 def get_admin_user():
     if session.get("admin_id"):
         return User.query.get(session["admin_id"])
@@ -104,6 +127,41 @@ def index():
                            page_url=page_url, per_page=per_page)
 
 
+@products_bp.route("/inventory-alerts")
+@admin_required
+def inventory_alerts():
+    q = request.args.get("q", "").strip()
+    products = low_stock_products_query()
+    if q:
+        products = products.filter(
+            Product.name.contains(q)
+            | Product.shelf_no.contains(q)
+            | Product.sku.contains(q)
+        )
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+    if per_page not in (20, 50, 100):
+        per_page = 20
+    pagination = products.order_by(
+        Product.stock.asc(), Product.low_stock_threshold.desc(), Product.name.asc()
+    ).paginate(page=page, per_page=per_page, error_out=False)
+    qs_parts = []
+    for key, value in request.args.items():
+        if key not in ("page", "per_page"):
+            qs_parts.append(f"{key}={value}")
+    page_url = request.path + "?" + ("&".join(qs_parts) + "&" if qs_parts else "")
+    return render_template(
+        "inventory_alerts.html",
+        products=pagination.items,
+        pagination=pagination,
+        q=q,
+        page_url=page_url,
+        per_page=per_page,
+        unviewed_count=Order.query.filter_by(is_viewed=False).count(),
+        session_user=get_admin_user(),
+    )
+
+
 @products_bp.route("/product/add", methods=["GET", "POST"])
 @admin_required
 def add():
@@ -119,10 +177,16 @@ def add():
             return render_template("product_form.html", product=None, error=f"SKU '{sku}' 已存在，请使用唯一编码", unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
         try:
             stock = parse_stock(request.form.get("stock"))
+            low_stock_threshold = parse_low_stock_threshold(
+                request.form.get("low_stock_threshold")
+            )
         except ValueError as e:
             return render_template("product_form.html", product=None, error=str(e), unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
         image = save_upload(request.files.get("image"))
-        product = Product(name=name, shelf_no=shelf_no, sku=sku, price=float(price), stock=stock, image=image)
+        product = Product(
+            name=name, shelf_no=shelf_no, sku=sku, price=float(price),
+            stock=stock, low_stock_threshold=low_stock_threshold, image=image,
+        )
         db.session.add(product)
         db.session.commit()
         return redirect(url_for("products.index"))
@@ -142,11 +206,15 @@ def edit(product_id):
             return render_template("product_form.html", product=product, error=f"SKU '{sku}' 已被其他商品使用", unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
         try:
             stock = parse_stock(request.form.get("stock"))
+            low_stock_threshold = parse_low_stock_threshold(
+                request.form.get("low_stock_threshold")
+            )
         except ValueError as e:
             return render_template("product_form.html", product=product, error=str(e), unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
         product.sku = sku
         product.price = float(request.form.get("price", "").strip())
         product.stock = stock
+        product.low_stock_threshold = low_stock_threshold
         img = save_upload(request.files.get("image"))
         if img:
             product.image = img

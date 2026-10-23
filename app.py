@@ -1,11 +1,11 @@
 import os
 from datetime import timedelta
 from werkzeug.security import generate_password_hash
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, session
 from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import Engine
 from config import ENV, SECRET_KEY, SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS, UPLOAD_FOLDER, BASE_DIR
-from models import db, User, Store, Order, Address, InventorySync
+from models import db, User, Store, Product, Order, Address, InventorySync
 from csrf import csrf_protect
 
 app = Flask(__name__)
@@ -33,6 +33,19 @@ def _cst_filter(dt, fmt="%m-%d %H:%M"):
 
 
 db.init_app(app)
+
+
+@app.context_processor
+def inject_low_stock_count():
+    """Expose the current low-stock warning count in every admin page."""
+    if not session.get("is_admin"):
+        return {}
+    count = Product.query.filter(
+        Product.stock.isnot(None),
+        Product.low_stock_threshold.isnot(None),
+        Product.stock <= Product.low_stock_threshold,
+    ).count()
+    return {"low_stock_count": count}
 
 # SQLite does not enforce foreign keys by default — turn them on per connection.
 if ENV == "development":
@@ -98,6 +111,14 @@ with app.app_context():
             with db.engine.connect() as conn:
                 conn.execute(text("ALTER TABLE product ADD COLUMN stock INTEGER NULL"))
             print("  [Migration] Added stock column to product table.")
+
+        # Per-product warning threshold; NULL means warnings are disabled.
+        if "low_stock_threshold" not in product_cols:
+            with db.engine.connect() as conn:
+                conn.execute(text(
+                    "ALTER TABLE product ADD COLUMN low_stock_threshold INTEGER NULL"
+                ))
+            print("  [Migration] Added low_stock_threshold column to product table.")
 
         # Ensure store_id column exists on 'order' table (for upgrades from old schema)
         order_cols = [c["name"] for c in inspector.get_columns("order")]

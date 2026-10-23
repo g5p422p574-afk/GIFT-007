@@ -32,6 +32,8 @@ class Product(db.Model):
     price = db.Column(db.Float, nullable=False)
     # NULL means inventory is not limited for this product.
     stock = db.Column(db.Integer, nullable=True)
+    # NULL disables low-stock warnings for this product.
+    low_stock_threshold = db.Column(db.Integer, nullable=True)
     is_out_of_stock = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

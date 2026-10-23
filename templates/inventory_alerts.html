@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+{% set is_admin = 1 %}
+{% block title %}库存预警{% endblock %}
+{% block content %}
+<div class="action-bar">
+  <div>
+    <h2 class="page-title" style="margin-bottom:4px;">库存预警</h2>
+    <p style="color:var(--text-muted);font-size:14px;">当前共 {{ pagination.total }} 个商品达到预警阈值，优先展示库存更少的商品。</p>
+  </div>
+  <a href="{{ url_for('products.index') }}" class="btn btn-outline">商品管理</a>
+</div>
+
+<div class="search-bar" style="display:flex;gap:8px;">
+  <input type="text" id="searchInput" placeholder="搜索商品名称/货架号/SKU..." value="{{ q }}" autofocus style="flex:1;">
+  <button type="button" id="searchBtn" class="btn btn-primary btn-sm">搜索</button>
+  {% if q %}<a href="?per_page={{ per_page }}" class="btn btn-sm" style="color:var(--danger);">清除</a>{% endif %}
+</div>
+
+{% if products %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>商品</th><th>货架号</th><th>SKU</th><th>剩余库存</th><th>预警阈值</th><th>状态</th><th>操作</th></tr>
+    </thead>
+    <tbody>
+      {% for p in products %}
+      <tr>
+        <td>{{ p.name }}</td>
+        <td>{{ p.shelf_no }}</td>
+        <td style="font-family:monospace;font-size:12px;">{{ p.sku or '-' }}</td>
+        <td style="font-weight:700;color:var(--danger);">{{ p.stock }}</td>
+        <td>{{ p.low_stock_threshold }}</td>
+        <td>
+          {% if p.stock == 0 %}
+          <span style="color:var(--danger);font-weight:600;">已售罄</span>
+          {% else %}
+          <span style="color:var(--warning);font-weight:600;">库存偏低</span>
+          {% endif %}
+        </td>
+        <td><a href="{{ url_for('products.edit', product_id=p.id) }}" class="btn btn-outline btn-sm">调整库存/阈值</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card-list">
+  {% for p in products %}
+  <div class="card-item">
+    <div class="ci-row"><span class="ci-label">商品</span><strong>{{ p.name }}</strong></div>
+    <div class="ci-row"><span class="ci-label">货架号</span><span>{{ p.shelf_no }}</span></div>
+    {% if p.sku %}<div class="ci-row"><span class="ci-label">SKU</span><span style="font-family:monospace;">{{ p.sku }}</span></div>{% endif %}
+    <div class="ci-row"><span class="ci-label">剩余库存</span><strong style="color:var(--danger);">{{ p.stock }}</strong></div>
+    <div class="ci-row"><span class="ci-label">预警阈值</span><span>{{ p.low_stock_threshold }}</span></div>
+    <div class="ci-actions"><a href="{{ url_for('products.edit', product_id=p.id) }}" class="btn btn-outline btn-sm">调整库存/阈值</a></div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">
+  <p>{{ '没有找到匹配的预警商品' if q else '当前没有库存预警' }}</p>
+  <p style="font-size:13px;margin-top:8px;color:var(--text-muted);">请在商品编辑页设置库存和预警阈值；阈值留空时不预警。</p>
+</div>
+{% endif %}
+
+{% include '_pagination.html' %}
+
+<script>
+(function() {
+  var input = document.getElementById('searchInput');
+  var button = document.getElementById('searchBtn');
+  function search() {
+    var q = input.value.trim();
+    window.location.href = '?page=1&per_page={{ per_page }}' + (q ? '&q=' + encodeURIComponent(q) : '');
+  }
+  button.addEventListener('click', search);
+  input.addEventListener('keydown', function(event) {
+    if (event.key === 'Enter') search();
+  });
+})();
+</script>
+{% endblock %}

@@ -42,6 +42,12 @@
            value="{% if request.method == 'POST' %}{{ request.form.get('stock', '') }}{% elif product and product.stock is not none %}{{ product.stock }}{% endif %}">
     <small style="color:var(--text-muted);">非必填；留空时下单不限制数量，填写 0 时商品不可下单。</small>
   </div>
+  <div class="form-group">
+    <label>库存预警阈值</label>
+    <input type="number" name="low_stock_threshold" min="0" step="1" placeholder="留空表示不预警"
+           value="{% if request.method == 'POST' %}{{ request.form.get('low_stock_threshold', '') }}{% elif product and product.low_stock_threshold is not none %}{{ product.low_stock_threshold }}{% endif %}">
+    <small style="color:var(--text-muted);">非必填；当剩余库存小于等于该值时，商品会出现在“库存预警”中。不限库存的商品不会触发预警。</small>
+  </div>
   <button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:16px;">{{ '保存修改' if product else '添加商品' }}</button>
 </form>
 {% endblock %}
