@@ -21,6 +21,7 @@
   {% for p in products %}
   <div class="product-card" data-keywords="{{ p.name }} {{ p.shelf_no }}">
     <div class="img-wrap">
+      <span class="delivery-tag delivery-{{ p.delivery_type }}">{{ p.delivery_label }}</span>
       {% if p.image %}
       <img src="{{ url_for('uploaded_file', filename=p.image) }}" alt="{{ p.name }}" loading="lazy" decoding="async" fetchpriority="low">
       {% else %}
@@ -29,10 +30,7 @@
     </div>
     <div class="info">
       <div class="name">{{ p.name }}</div>
-      <div class="product-meta-row">
-        <div class="meta">货架号: {{ p.shelf_no }}</div>
-        <span class="delivery-tag delivery-{{ p.delivery_type }}">{{ p.delivery_label }}</span>
-      </div>
+      <div class="meta">货架号: {{ p.shelf_no }}</div>
       <div class="price">¥{{ "%.2f"|format(p.price) }}</div>
       {% if p.is_out_of_stock or (p.stock is not none and p.stock <= 0) %}
       <span class="stock-out">  缺货</span>
