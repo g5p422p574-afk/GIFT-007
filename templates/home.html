@@ -21,6 +21,7 @@
   {% for p in products %}
   <div class="product-card" data-keywords="{{ p.name }} {{ p.shelf_no }}">
     <div class="img-wrap">
+      <span class="delivery-tag delivery-{{ p.delivery_type }}">{{ p.delivery_label }}</span>
       {% if p.image %}
       <img src="{{ url_for('uploaded_file', filename=p.image) }}" alt="{{ p.name }}" loading="lazy" decoding="async" fetchpriority="low">
       {% else %}
@@ -94,8 +95,8 @@ function cartAddSubmit(e) {
     }).then(function(r) {
       if (r.status === 409) {
         return r.json().then(function(d) {
-          done(d.message || '库存不足');
-          setTimeout(function() { btn.textContent = origText; }, 2000);
+          alert(d.message || '加入购物车失败');
+          done(origText);
           return null;
         });
       }

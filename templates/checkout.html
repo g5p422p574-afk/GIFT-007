@@ -17,7 +17,7 @@
           <img src="{{ url_for('uploaded_file', filename=item.product.image) }}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">
           {% endif %}
         </td>
-        <td>{{ item.product.name }}</td>
+        <td>{{ item.product.name }} <span class="delivery-tag delivery-{{ item.product.delivery_type }}">{{ item.product.delivery_label }}</span></td>
         <td>{{ item.product.shelf_no }}</td>
         <td>¥{{ "%.2f"|format(item.product.price) }}</td>
         <td>{{ item.quantity }}</td>

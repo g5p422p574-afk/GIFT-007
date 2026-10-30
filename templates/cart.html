@@ -17,7 +17,7 @@
           {% if item.product.image %}
           <img src="{{ url_for('uploaded_file', filename=item.product.image) }}" class="thumb" alt="{{ item.product.name }}">
           {% endif %}
-          {{ item.product.name }}
+          <span>{{ item.product.name }} <span class="delivery-tag delivery-{{ item.product.delivery_type }}">{{ item.product.delivery_label }}</span></span>
         </div>
       </td>
       <td>{{ item.product.shelf_no }}</td>
@@ -59,7 +59,7 @@
         {% if item.product.image %}
         <img src="{{ url_for('uploaded_file', filename=item.product.image) }}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">
         {% endif %}
-        {{ item.product.name }}
+        <span>{{ item.product.name }} <span class="delivery-tag delivery-{{ item.product.delivery_type }}">{{ item.product.delivery_label }}</span></span>
       </span>
     </div>
     <div class="ci-row"><span class="ci-label">货架号</span><span>{{ item.product.shelf_no }}</span></div>

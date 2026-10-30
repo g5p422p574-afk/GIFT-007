@@ -37,6 +37,15 @@ class Product(db.Model):
     is_out_of_stock = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    @property
+    def delivery_type(self):
+        """Products with an SKU ship from the company; the rest from factories."""
+        return "company" if (self.sku or "").strip() else "factory"
+
+    @property
+    def delivery_label(self):
+        return "公司直发" if self.delivery_type == "company" else "厂家直发"
+
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)

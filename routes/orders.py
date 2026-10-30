@@ -1,11 +1,12 @@
 from datetime import datetime, timedelta
 import os
 import uuid
-from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, abort
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, abort, flash
 from sqlalchemy.orm import joinedload
 from models import db, Product, User, Store, Order, OrderItem
 from config import ALLOWED_EXTENSIONS
 from security import audit, get_real_ip
+from cart_rules import MIXED_DELIVERY_MESSAGE, has_mixed_delivery
 
 orders_bp = Blueprint("orders", __name__)
 
@@ -248,6 +249,15 @@ def reorder(order_id):
         quantities[item.product_id] = quantities.get(item.product_id, 0) + item.quantity
 
     cart = session.get("cart", {})
+    product_ids = set(quantities)
+    product_ids.update(
+        int(product_id) for product_id in cart
+        if str(product_id).isdigit()
+    )
+    products = Product.query.filter(Product.id.in_(product_ids)).all() if product_ids else []
+    if has_mixed_delivery(products):
+        flash(MIXED_DELIVERY_MESSAGE, "error")
+        return redirect(url_for("home.cart"))
     for product_id, quantity in quantities.items():
         # Preserve unrelated cart items, but make reordered products match the
         # original order exactly instead of accumulating duplicate quantities.

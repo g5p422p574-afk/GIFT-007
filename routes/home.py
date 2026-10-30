@@ -6,10 +6,11 @@ from datetime import datetime, timedelta
 from functools import wraps
 from collections import defaultdict
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, abort, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, abort, jsonify, flash
 from models import db, Product, User, Store, Order, OrderItem, Address
 from config import ALLOWED_EXTENSIONS
 from security import audit, get_real_ip
+from cart_rules import MIXED_DELIVERY_MESSAGE, cart_allows_product, has_mixed_delivery
 
 home_bp = Blueprint("home", __name__)
 
@@ -177,6 +178,12 @@ def cart_add(product_id):
         return redirect(url_for("home.login"))
     product = Product.query.get_or_404(product_id)
     cart = session.get("cart", {})
+    cart_products = [item["product"] for item in get_cart_data()[0]]
+    if not cart_allows_product(cart_products, product):
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest":
+            return jsonify({"ok": False, "message": MIXED_DELIVERY_MESSAGE}), 409
+        flash(MIXED_DELIVERY_MESSAGE, "error")
+        return redirect(url_for("home.cart"))
     pid = str(product_id)
     next_qty = cart.get(pid, 0) + 1
     if product.is_out_of_stock or (product.stock is not None and next_qty > product.stock):
@@ -186,6 +193,7 @@ def cart_add(product_id):
         )
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
             return jsonify({"ok": False, "message": message}), 409
+        flash(message, "error")
         return redirect(url_for("home.index"))
     cart[pid] = next_qty
     session["cart"] = cart
@@ -238,6 +246,10 @@ def checkout():
     if not store:
         return redirect(url_for("home.store_manage"))
     store_id = store.id
+    items, total, _ = get_cart_data()
+    if has_mixed_delivery([item["product"] for item in items]):
+        flash(MIXED_DELIVERY_MESSAGE, "error")
+        return redirect(url_for("home.cart"))
     if request.method == "POST":
         # Order time restriction: all accounts only 17:00-08:00 Beijing time
         bj_hour = (datetime.utcnow() + timedelta(hours=8)).hour
@@ -246,7 +258,7 @@ def checkout():
                 Address.is_default.desc(), Address.id.desc()
             ).all()
             return render_template(
-                "checkout.html", items=get_cart_data()[0], total=get_cart_data()[1],
+                "checkout.html", items=items, total=total,
                 error="当前时间暂停下单（每天 08:00-17:00 暂停，17:00-次日 08:00 开放）",
                 addresses=addresses, checkout_token=session.get("checkout_token", ""),
                 time_check_enabled=True, **template_context()
@@ -257,7 +269,6 @@ def checkout():
         if not token or token != session.pop("checkout_token", None):
             return redirect(url_for("orders.list_orders"))
 
-        items, total, _ = get_cart_data()
         if not items:
             return redirect(url_for("home.cart"))
 
@@ -360,7 +371,6 @@ def checkout():
         session["cart"] = {}
         return redirect(url_for("orders.list_orders"))
 
-    items, total, _ = get_cart_data()
     if not items:
         return redirect(url_for("home.cart"))
     # Generate idempotency token
