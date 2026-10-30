@@ -199,7 +199,6 @@ nav .cart-badge {
   box-shadow: var(--shadow-lg);
 }
 .product-card .img-wrap {
-  position: relative;
   width: 100%;
   height: 200px;
   background: #f5f0eb;
@@ -219,12 +218,6 @@ nav .cart-badge {
   line-height: 1.5;
   white-space: nowrap;
   vertical-align: middle;
-}
-.img-wrap > .delivery-tag {
-  position: absolute;
-  z-index: 2;
-  top: 10px;
-  left: 10px;
 }
 .delivery-company { background: #e8f1ff; color: #245fa8; }
 .delivery-factory { background: #fff1dc; color: #9a5b00; }
@@ -258,6 +251,12 @@ nav .cart-badge {
 }
 .product-card .info .name { font-size: 15px; font-weight: 600; line-height: 1.4; }
 .product-card .info .meta { font-size: 12px; color: var(--text-muted); }
+.product-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 .product-card .info .price {
   font-size: 20px;
   font-weight: 800;
