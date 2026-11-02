@@ -237,6 +237,11 @@ nav .cart-badge {
   color: #a32929;
   font-size: 14px;
 }
+.flash-success {
+  border-color: #a7d8b0;
+  background: #edf9ef;
+  color: #2f6f3b;
+}
 .product-card .img-wrap img {
   width: 100%;
   height: 100%;

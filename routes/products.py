@@ -2,12 +2,13 @@ import os
 import uuid
 from datetime import datetime, timedelta
 from functools import wraps
-from flask import Blueprint, render_template, request, redirect, url_for, current_app, session
+from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, flash
 from sqlalchemy import func, text as _sql_text
 from sqlalchemy.orm import joinedload
+from werkzeug.security import generate_password_hash
 from models import db, Product, User, Store, OrderItem, Order, InventorySync
 from config import ALLOWED_EXTENSIONS
-from security import audit
+from security import audit, get_real_ip
 
 products_bp = Blueprint("products", __name__)
 
@@ -314,6 +315,70 @@ def finance():
         unviewed_count=unviewed,
         session_user=get_admin_user(),
     )
+
+
+@products_bp.route("/accounts")
+@admin_required
+def accounts():
+    """Find storefront accounts by store name and manage their passwords."""
+    q = request.args.get("q", "").strip()
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 20, type=int)
+    if per_page not in (20, 50, 100):
+        per_page = 20
+
+    query = User.query.filter_by(is_admin=False).options(joinedload(User.stores))
+    if q:
+        query = query.filter(
+            User.stores.any(Store.store_name.contains(q))
+            | (~User.stores.any() & User.store_name.contains(q))
+        )
+    pagination = query.order_by(User.created_at.desc(), User.id.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    page_url = url_for("products.accounts", q=q) + "&"
+    return render_template(
+        "admin_accounts.html",
+        accounts=pagination.items,
+        pagination=pagination,
+        q=q,
+        page_url=page_url,
+        per_page=per_page,
+        unviewed_count=Order.query.filter_by(is_viewed=False).count(),
+        session_user=get_admin_user(),
+    )
+
+
+@products_bp.route("/account/<int:user_id>/reset-password", methods=["POST"])
+@admin_required
+def reset_account_password(user_id):
+    """Reset a storefront account password without requiring its old password."""
+    user = User.query.filter_by(id=user_id, is_admin=False).first_or_404()
+    new_password = request.form.get("new_password", "").strip()
+    confirm_password = request.form.get("confirm_password", "").strip()
+    q = request.form.get("q", "").strip()
+
+    if len(new_password) < 6:
+        flash("新密码至少6位", "error")
+    elif len(new_password) > 128:
+        flash("新密码不能超过128位", "error")
+    elif new_password != confirm_password:
+        flash("两次输入的新密码不一致", "error")
+    else:
+        user.password_hash = generate_password_hash(
+            new_password, method="pbkdf2:sha256"
+        )
+        db.session.commit()
+        audit.log(
+            "admin_password_reset",
+            ip=get_real_ip(),
+            user_agent=request.headers.get("User-Agent", ""),
+            user_id=session.get("admin_id"),
+            detail=f"target_user_id={user.id} phone={user.phone}",
+        )
+        flash(f"账号 {user.phone} 的密码已重置", "success")
+
+    return redirect(url_for("products.accounts", q=q))
 
 
 @products_bp.route("/after-sales")

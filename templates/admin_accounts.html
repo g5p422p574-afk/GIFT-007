@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% set is_admin = 1 %}
+{% block title %}账号管理{% endblock %}
+{% block content %}
+<h2 class="page-title">账号管理</h2>
+
+<form class="search-bar" method="GET" action="{{ url_for('products.accounts') }}" style="display:flex;gap:8px;">
+  <input type="text" name="q" placeholder="搜索店名..." value="{{ q }}" autofocus style="flex:1;">
+  <button type="submit" class="btn btn-primary btn-sm">查询</button>
+  {% if q %}<a href="{{ url_for('products.accounts') }}" class="btn btn-outline btn-sm">清除</a>{% endif %}
+</form>
+
+{% if accounts %}
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>店名</th><th>登录账号</th><th>创建时间</th><th>操作</th></tr>
+    </thead>
+    <tbody>
+      {% for account in accounts %}
+      {% set store_names = account.stores | map(attribute='store_name') | list %}
+      <tr>
+        <td>
+          {% if store_names %}
+            {% for store_name in store_names %}<div>{{ store_name }}</div>{% endfor %}
+          {% else %}
+            {{ account.store_name or '-' }}
+          {% endif %}
+        </td>
+        <td style="font-family:monospace;">{{ account.phone }}</td>
+        <td>{{ account.created_at|cst('%Y-%m-%d %H:%M') }}</td>
+        <td>
+          <button type="button" class="btn btn-primary btn-sm reset-password-btn"
+                  data-url="{{ url_for('products.reset_account_password', user_id=account.id) }}"
+                  data-account="{{ account.phone }}"
+                  data-stores="{{ store_names|join('、') if store_names else account.store_name }}">
+            重置密码
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card-list">
+  {% for account in accounts %}
+  {% set store_names = account.stores | map(attribute='store_name') | list %}
+  <div class="card-item">
+    <div class="ci-row"><span class="ci-label">店名</span><span>{{ store_names|join('、') if store_names else (account.store_name or '-') }}</span></div>
+    <div class="ci-row"><span class="ci-label">登录账号</span><span style="font-family:monospace;">{{ account.phone }}</span></div>
+    <div class="ci-row"><span class="ci-label">创建时间</span><span>{{ account.created_at|cst('%Y-%m-%d %H:%M') }}</span></div>
+    <div class="ci-actions">
+      <button type="button" class="btn btn-primary btn-sm reset-password-btn"
+              data-url="{{ url_for('products.reset_account_password', user_id=account.id) }}"
+              data-account="{{ account.phone }}"
+              data-stores="{{ store_names|join('、') if store_names else account.store_name }}">
+        重置密码
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% include '_pagination.html' %}
+{% else %}
+<div class="empty"><p>{{ '未找到匹配的账号' if q else '暂无商城账号' }}</p></div>
+{% endif %}
+
+<div id="resetPasswordModal" class="modal-overlay" style="display:none;">
+  <div class="modal-content">
+    <h3>重置账号密码</h3>
+    <p id="resetAccountInfo" style="color:var(--text-muted);margin-bottom:16px;"></p>
+    <form id="resetPasswordForm" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="q" value="{{ q }}">
+      <div class="form-group">
+        <label for="newPassword">新密码</label>
+        <input id="newPassword" type="password" name="new_password" minlength="6" maxlength="128" autocomplete="new-password" required>
+      </div>
+      <div class="form-group">
+        <label for="confirmPassword">再次输入新密码</label>
+        <input id="confirmPassword" type="password" name="confirm_password" minlength="6" maxlength="128" autocomplete="new-password" required>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button type="submit" class="btn btn-primary">确认重置</button>
+        <button type="button" class="btn btn-outline" id="closeResetModal">取消</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function() {
+  var modal = document.getElementById('resetPasswordModal');
+  var form = document.getElementById('resetPasswordForm');
+  var info = document.getElementById('resetAccountInfo');
+  var newPassword = document.getElementById('newPassword');
+  var confirmPassword = document.getElementById('confirmPassword');
+
+  document.querySelectorAll('.reset-password-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      form.action = btn.dataset.url;
+      info.textContent = '店名：' + (btn.dataset.stores || '-') + '；账号：' + btn.dataset.account;
+      newPassword.value = '';
+      confirmPassword.value = '';
+      modal.style.display = 'flex';
+      newPassword.focus();
+    });
+  });
+
+  document.getElementById('closeResetModal').addEventListener('click', function() {
+    modal.style.display = 'none';
+  });
+  modal.addEventListener('click', function(event) {
+    if (event.target === modal) modal.style.display = 'none';
+  });
+  form.addEventListener('submit', function(event) {
+    if (newPassword.value !== confirmPassword.value) {
+      event.preventDefault();
+      alert('两次输入的新密码不一致');
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -46,7 +46,7 @@
       </a>
       <a href="{{ url_for('products.finance') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.finance' else '' }}">  财务管理</a>
       <a href="{{ url_for('products.sales') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.sales' else '' }}">  销量统计</a>
-      <a href="{{ url_for('products.after_sales') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.after_sales' else '' }}">  售后管理</a>
+      <a href="{{ url_for('products.accounts') }}" class="{{ 'active' if request.endpoint and request.endpoint in ('products.accounts', 'products.reset_account_password') else '' }}">账号管理</a>
       <a href="{{ url_for('products.security_dashboard') }}" class="{{ 'active' if request.endpoint and request.endpoint == 'products.security_dashboard' else '' }}" style="font-size:13px;">  安全</a>
       <span style="flex:1;"></span>
       {% if session_user %}
