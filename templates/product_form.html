@@ -12,7 +12,7 @@
   <div class="form-group">
     <label>商品图片</label>
     {% if product and product.image %}
-    <div style="margin-bottom:8px;"><img src="{{ url_for('uploaded_file', filename=product.image) }}" class="thumb" style="width:100px;height:100px;" alt="{{ product.name }}"></div>
+    <div style="margin-bottom:8px;"><a href="{{ url_for('uploaded_file', filename=product.image) }}" target="_blank" title="查看原图"><img src="{{ url_for('uploaded_file', filename=product.image|thumbnail) }}" class="thumb" style="width:100px;height:100px;" alt="{{ product.name }}"></a></div>
     {% endif %}
     <input type="file" name="image" accept="image/*" style="padding:8px;">
   </div>

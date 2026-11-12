@@ -8,7 +8,7 @@ from collections import defaultdict
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, abort, jsonify, flash
 from models import db, Product, User, Store, Order, OrderItem, Address
-from config import ALLOWED_EXTENSIONS
+from image_utils import save_upload
 from security import audit, get_real_ip
 from cart_rules import MIXED_DELIVERY_MESSAGE, cart_allows_product, has_mixed_delivery
 
@@ -41,43 +41,6 @@ def rate_limit(f):
         _rate_limit_store[key].append(now)
         return f(*args, **kwargs)
     return decorated
-
-
-def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# Image magic bytes for content-type validation
-IMG_SIGNATURES = {
-    b"\x89PNG": "png",
-    b"\xff\xd8\xff": "jpg",
-    b"GIF8": "gif",
-    b"RIFF": "webp",
-}
-
-def is_valid_image_content(file):
-    """Verify file content matches an image signature."""
-    if not file:
-        return False
-    pos = file.tell()
-    try:
-        header = file.read(12)
-        file.seek(pos)
-        if not header:
-            return False
-        for sig, ext in IMG_SIGNATURES.items():
-            if header.startswith(sig):
-                return True
-        return False
-    except Exception:
-        return False
-
-def save_upload(file):
-    if file and allowed_file(file.filename) and is_valid_image_content(file):
-        ext = file.filename.rsplit(".", 1)[1].lower()
-        fname = f"{uuid.uuid4().hex}.{ext}"
-        file.save(os.path.join(current_app.config["UPLOAD_FOLDER"], fname))
-        return fname
-    return ""
 
 
 def login_required(f):
@@ -329,7 +292,9 @@ def checkout():
                 checkout_token=token, time_check_enabled=True, **template_context()
             )
 
-        payment_image = save_upload(request.files.get("payment_image"))
+        payment_image = save_upload(
+            request.files.get("payment_image"), current_app.config["UPLOAD_FOLDER"]
+        )
         if not payment_image:
             db.session.rollback()
             session["checkout_token"] = token

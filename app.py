@@ -5,8 +5,9 @@ from flask import Flask, send_from_directory, session
 from sqlalchemy import event, inspect, text
 from sqlalchemy.engine import Engine
 from config import ENV, SECRET_KEY, SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS, UPLOAD_FOLDER, BASE_DIR
-from models import db, User, Store, Product, Order, Address, InventorySync
+from models import db, User, Store, Product, Order, Address
 from csrf import csrf_protect
+from image_utils import thumbnail_filename
 
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
@@ -30,6 +31,9 @@ def _cst_filter(dt, fmt="%m-%d %H:%M"):
         return ""
     from datetime import timedelta
     return (dt + timedelta(hours=8)).strftime(fmt)
+
+
+app.jinja_env.filters["thumbnail"] = thumbnail_filename
 
 
 db.init_app(app)
@@ -150,11 +154,6 @@ with app.app_context():
                     "ALTER TABLE address ADD COLUMN store_id INTEGER"
                 ))
             print("  [Migration] Added store_id column to address table.")
-
-        # Ensure inventory_sync table exists
-        if "inventory_sync" not in inspector.get_table_names():
-            db.create_all()  # creates any missing tables, including inventory_sync
-            print("  [Migration] Created inventory_sync table.")
 
         # Migrate data: create Store for each non-admin User without one
         users_without_store = User.query.filter(

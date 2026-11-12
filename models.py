@@ -98,10 +98,3 @@ class Address(db.Model):
 
     store = db.relationship("Store", backref="addresses")
     user = db.relationship("User", backref="addresses")
-
-
-class InventorySync(db.Model):
-    """Track which dates have been synced to the external inventory system."""
-    id = db.Column(db.Integer, primary_key=True)
-    sync_date = db.Column(db.Date, nullable=False, unique=True)
-    synced_at = db.Column(db.DateTime, default=datetime.utcnow)

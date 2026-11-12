@@ -139,3 +139,16 @@ def test_admin_account_cannot_be_reset(app, client):
         },
     )
     assert response.status_code == 404
+
+
+def test_inventory_sync_feature_is_removed(app):
+    routes = {rule.rule for rule in app.url_map.iter_rules()}
+    assert "/admin/sales/sync" not in routes
+    assert "inventory_sync" not in db.metadata.tables
+
+    app.jinja_env.get_template("admin_sales.html")
+    template_source = app.jinja_env.loader.get_source(
+        app.jinja_env, "admin_sales.html"
+    )[0]
+    assert "同步到库存系统" not in template_source
+    assert "products.sales_sync" not in template_source

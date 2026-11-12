@@ -1,13 +1,11 @@
-import os
-import uuid
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, flash
 from sqlalchemy import func, text as _sql_text
 from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash
-from models import db, Product, User, Store, OrderItem, Order, InventorySync
-from config import ALLOWED_EXTENSIONS
+from models import db, Product, User, Store, OrderItem, Order
+from image_utils import save_upload
 from security import audit, get_real_ip
 
 products_bp = Blueprint("products", __name__)
@@ -63,43 +61,6 @@ def admin_required(f):
             return redirect(url_for("home.admin_login"))
         return f(*args, **kwargs)
     return decorated
-
-
-def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# Image magic bytes for content-type validation
-IMG_SIGNATURES = {
-    b"\x89PNG": "png",
-    b"\xff\xd8\xff": "jpg",
-    b"GIF8": "gif",
-    b"RIFF": "webp",
-}
-
-def is_valid_image_content(file):
-    """Verify file content matches an image signature."""
-    if not file:
-        return False
-    pos = file.tell()
-    try:
-        header = file.read(12)
-        file.seek(pos)
-        if not header:
-            return False
-        for sig, ext in IMG_SIGNATURES.items():
-            if header.startswith(sig):
-                return True
-        return False
-    except Exception:
-        return False
-
-def save_upload(file):
-    if file and allowed_file(file.filename) and is_valid_image_content(file):
-        ext = file.filename.rsplit(".", 1)[1].lower()
-        fname = f"{uuid.uuid4().hex}.{ext}"
-        file.save(os.path.join(current_app.config["UPLOAD_FOLDER"], fname))
-        return fname
-    return ""
 
 
 @products_bp.route("/")
@@ -183,7 +144,9 @@ def add():
             )
         except ValueError as e:
             return render_template("product_form.html", product=None, error=str(e), unviewed_count=Order.query.filter_by(is_viewed=False).count(), session_user=get_admin_user())
-        image = save_upload(request.files.get("image"))
+        image = save_upload(
+            request.files.get("image"), current_app.config["UPLOAD_FOLDER"]
+        )
         product = Product(
             name=name, shelf_no=shelf_no, sku=sku, price=float(price),
             stock=stock, low_stock_threshold=low_stock_threshold, image=image,
@@ -216,7 +179,9 @@ def edit(product_id):
         product.price = float(request.form.get("price", "").strip())
         product.stock = stock
         product.low_stock_threshold = low_stock_threshold
-        img = save_upload(request.files.get("image"))
+        img = save_upload(
+            request.files.get("image"), current_app.config["UPLOAD_FOLDER"]
+        )
         if img:
             product.image = img
         db.session.commit()
@@ -414,19 +379,6 @@ def process_after_sale(order_id):
     return redirect(url_for("products.after_sales"))
 
 
-# ── Inventory sync config ──────────────────────────────────────────
-import json as _json
-try:
-    from urllib.request import Request as _Request, urlopen as _urlopen
-except ImportError:
-    from urllib2 import Request as _Request, urlopen as _urlopen
-
-INVENTORY_SYNC_URL = os.environ.get("GIFT_INVENTORY_SYNC_URL", "http://47.97.195.68/api/v1/sales-orders/quick")
-INVENTORY_TOKEN = os.environ.get("GIFT_INVENTORY_TOKEN", "")
-INVENTORY_CUSTOMER_CODE = "srdz"
-INVENTORY_WAREHOUSE_CODE = "CK001"
-
-
 @products_bp.route("/sales")
 @admin_required
 def sales():
@@ -511,26 +463,6 @@ def sales():
         for r in sku_totals
     ]
 
-    # Dates that have syncable SKU data (CST dates for picker)
-    sync_dates = (
-        db.session.query(CST_DATE.label("d"))
-        .join(OrderItem, OrderItem.order_id == Order.id)
-        .join(Product, OrderItem.product_id == Product.id)
-        .filter(Order.status.in_(["confirmed", "shipped"]))
-        .filter(Product.sku != "")
-        .filter(Product.sku.isnot(None))
-        .group_by(CST_DATE)
-        .order_by(CST_DATE.desc())
-        .limit(60)
-        .all()
-    )
-    sync_dates_list = [str(r.d) for r in sync_dates]
-
-    # Dates already synced
-    synced = {r.sync_date.isoformat(): r.synced_at for r in InventorySync.query.filter(
-        InventorySync.sync_date.in_(sync_dates_list)
-    ).all()}
-
     unviewed = Order.query.filter_by(is_viewed=False).count()
     return render_template(
         "admin_sales.html",
@@ -539,182 +471,8 @@ def sales():
         date_from=date_from,
         date_to=date_to,
         sku_q=sku_q,
-        sync_dates=sync_dates_list,
-        synced_dates=synced,
-        inventory_configured=bool(INVENTORY_TOKEN),
         unviewed_count=unviewed,
         session_user=get_admin_user(),
-    )
-
-
-@products_bp.route("/sales/sync", methods=["POST"])
-@admin_required
-def sales_sync():
-    """Send one day's sales to external inventory: POST /api/v1/sales-orders/quick."""
-    date = request.form.get("date", "").strip()
-    if not date:
-        return redirect(url_for("products.sales"))
-
-    # Check config
-    if not INVENTORY_TOKEN:
-        return _sales_render(
-            date, date, "",
-            sync_error="请先配置环境变量: GIFT_INVENTORY_TOKEN",
-        )
-
-    # Prevent duplicate sync
-    from datetime import datetime as _dt
-    sync_date = _dt.strptime(date, "%Y-%m-%d").date()
-    existing = InventorySync.query.filter_by(sync_date=sync_date).first()
-    if existing:
-        return _sales_render(
-            date, date, "",
-            sync_error=f"{date} 已于 {existing.synced_at.strftime('%m-%d %H:%M:%S')} 同步过，每天只能同步一次",
-        )
-
-    # CST day UTC range
-    utc_from = datetime.strptime(date, "%Y-%m-%d") - timedelta(hours=8)
-    utc_to = datetime.strptime(date, "%Y-%m-%d").replace(hour=23, minute=59, second=59) - timedelta(hours=8)
-
-    # Require all orders on this date to be confirmed (or shipped)
-    unconfirmed = Order.query.filter(
-        Order.status == "ordered",
-        Order.created_at >= utc_from,
-        Order.created_at <= utc_to,
-    ).count()
-    if unconfirmed > 0:
-        return _sales_render(
-            date, date, "",
-            sync_error=f"{date} 还有 {unconfirmed} 笔订单未确认，请先确认订单后再同步",
-        )
-
-    # Query sales for the given CST date
-    # CST day (00:00-23:59) = UTC (previous-day 16:00 to same-day 15:59)
-    utc_from = datetime.strptime(date, "%Y-%m-%d") - timedelta(hours=8)
-    utc_to = datetime.strptime(date, "%Y-%m-%d").replace(hour=23, minute=59, second=59) - timedelta(hours=8)
-
-    rows = (
-        db.session.query(
-            Product.sku,
-            Product.name,
-            Product.price,
-            func.sum(OrderItem.quantity).label("total_qty"),
-        )
-        .join(Order, OrderItem.order_id == Order.id)
-        .join(Product, OrderItem.product_id == Product.id)
-        .filter(Order.status.in_(["confirmed", "shipped"]))
-        .filter(Order.created_at >= utc_from)
-        .filter(Order.created_at <= utc_to)
-        .filter(Product.sku != "")
-        .filter(Product.sku.isnot(None))
-        .group_by(Product.id)
-        .order_by(Product.sku)
-        .all()
-    )
-
-    if not rows:
-        return _sales_render(date, date, "", sync_error=f"{date} 没有可同步的 SKU 销量数据")
-
-    # Build API payload
-    items = []
-    for idx, r in enumerate(rows, 1):
-        items.append({
-            "sku": r.sku,
-            "quantity": int(r.total_qty),
-            "unit_price": float(r.price),
-            "line_number": idx,
-        })
-
-    payload = {
-        "customer_code": INVENTORY_CUSTOMER_CODE,
-        "warehouse_code": INVENTORY_WAREHOUSE_CODE,
-        "order_date": date,
-        "items": items,
-        "notes": "Gift 系统自动同步",
-    }
-
-    sync_result = None
-    sync_error = None
-
-    try:
-        data = _json.dumps(payload).encode("utf-8")
-        req = _Request(
-            INVENTORY_SYNC_URL,
-            data=data,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {INVENTORY_TOKEN}",
-            },
-        )
-        resp = _urlopen(req, timeout=20)
-        status = resp.getcode()
-        body = resp.read().decode("utf-8", errors="replace")
-
-        if status == 200:
-            try:
-                resp_json = _json.loads(body)
-                if resp_json.get("code") == 0:
-                    order_data = resp_json.get("data", {})
-                    sync_result = (
-                        f"✅ 同步成功\n"
-                        f"订单号: {order_data.get('order_number', '-')}\n"
-                        f"客户: {order_data.get('customer_name', '-')}\n"
-                        f"金额: {order_data.get('total_amount', '-')}\n"
-                        f"状态: {order_data.get('status', '-')}"
-                    )
-                    # Record successful sync
-                    db.session.add(InventorySync(sync_date=sync_date))
-                    db.session.commit()
-                else:
-                    sync_error = f"API 返回错误: {resp_json.get('message', body)}"
-            except _json.JSONDecodeError:
-                sync_result = f"HTTP 200 — {body[:500]}"
-        elif status == 404:
-            sync_error = f"同步失败 (404): SKU 不存在，请检查商品 SKU 是否与库存系统一致"
-        elif status == 400:
-            sync_error = f"同步失败 (400): 库存不足 — {body[:300]}"
-        elif status == 422:
-            sync_error = f"同步失败 (422): 参数校验失败 — {body[:300]}"
-        else:
-            sync_error = f"同步失败 (HTTP {status}): {body[:300]}"
-    except Exception as e:
-        # urllib raises HTTPError for 4xx/5xx — extract body
-        body = ""
-        try:
-            body = e.read().decode("utf-8", errors="replace")[:500]
-        except Exception:
-            pass
-        code = getattr(e, "code", 0)
-        if code == 400:
-            sync_error = f"同步失败 (400): {body or str(e)}"
-        elif code == 404:
-            sync_error = f"同步失败 (404): SKU 不存在 — {body or str(e)}"
-        elif code == 422:
-            sync_error = f"同步失败 (422): 参数校验失败 — {body or str(e)}"
-        else:
-            sync_error = f"同步请求失败: {e}{' — ' + body if body else ''}"
-
-    return _sales_render(date, date, "", sync_result=sync_result, sync_error=sync_error, sync_payload=payload)
-
-
-def _sales_render(date_from, date_to, sku_q, sync_result=None, sync_error=None, sync_payload=None):
-    """Helper: re-render sales page with sync feedback."""
-    unviewed = Order.query.filter_by(is_viewed=False).count()
-    return render_template(
-        "admin_sales.html",
-        rows=[],
-        sku_totals=[],
-        sync_dates=[],
-        synced_dates={},
-        date_from=date_from,
-        date_to=date_to,
-        sku_q=sku_q,
-        inventory_configured=bool(INVENTORY_TOKEN),
-        unviewed_count=unviewed,
-        session_user=get_admin_user(),
-        sync_result=sync_result,
-        sync_error=sync_error,
-        sync_payload=sync_payload,
     )
 
 

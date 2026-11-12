@@ -30,7 +30,7 @@
           <tr>
             <td style="width:50px;">
               {% if item.product.image %}
-              <img src="{{ url_for('uploaded_file', filename=item.product.image) }}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">
+              <a href="{{ url_for('uploaded_file', filename=item.product.image) }}" target="_blank" title="查看原图"><img src="{{ url_for('uploaded_file', filename=item.product.image|thumbnail) }}" loading="lazy" style="width:40px;height:40px;object-fit:cover;border-radius:4px;"></a>
               {% endif %}
             </td>
             <td>{{ item.product.name }}</td>
@@ -58,7 +58,7 @@
             <span class="ci-label">商品</span>
             <span style="display:flex;align-items:center;gap:8px;">
               {% if item.product.image %}
-              <img src="{{ url_for('uploaded_file', filename=item.product.image) }}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;">
+              <a href="{{ url_for('uploaded_file', filename=item.product.image) }}" target="_blank" title="查看原图"><img src="{{ url_for('uploaded_file', filename=item.product.image|thumbnail) }}" loading="lazy" style="width:40px;height:40px;object-fit:cover;border-radius:4px;"></a>
               {% endif %}
               {{ item.product.name }}
             </span>
@@ -79,13 +79,13 @@
 
 <div class="detail-grid" style="margin-top:16px;">
   {% if order.payment_image %}
-  <div class="row"><span class="label">付款凭证</span><span class="value"><a href="{{ url_for('uploaded_file', filename=order.payment_image) }}" target="_blank"><img src="{{ url_for('uploaded_file', filename=order.payment_image) }}" class="preview" alt="付款凭证"></a></span></div>
+  <div class="row"><span class="label">付款凭证</span><span class="value"><a href="{{ url_for('uploaded_file', filename=order.payment_image) }}" target="_blank" title="点击查看原图"><img src="{{ url_for('uploaded_file', filename=order.payment_image|thumbnail) }}" class="preview" alt="付款凭证" loading="lazy"></a></span></div>
   {% endif %}
   {% if order.tracking_no %}
   <div class="row"><span class="label">快递单号</span><span class="value">{{ order.tracking_no }}</span></div>
   {% endif %}
   {% if order.shipping_image %}
-  <div class="row"><span class="label">发货凭证</span><span class="value"><a href="{{ url_for('uploaded_file', filename=order.shipping_image) }}" target="_blank"><img src="{{ url_for('uploaded_file', filename=order.shipping_image) }}" class="preview" alt="发货凭证"></a></span></div>
+  <div class="row"><span class="label">发货凭证</span><span class="value"><a href="{{ url_for('uploaded_file', filename=order.shipping_image) }}" target="_blank" title="点击查看原图"><img src="{{ url_for('uploaded_file', filename=order.shipping_image|thumbnail) }}" class="preview" alt="发货凭证" loading="lazy"></a></span></div>
   {% endif %}
 </div>
 

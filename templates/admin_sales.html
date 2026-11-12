@@ -20,50 +20,6 @@
   {% endif %}
 </form>
 
-<!-- ═══ Sync to Inventory ═══ -->
-{% if inventory_configured %}
-<div style="margin:20px 0;padding:16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
-  <h3 style="margin:0 0 12px;font-size:16px;">  同步到库存系统</h3>
-  <form method="POST" action="{{ url_for('products.sales_sync') }}" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;" onsubmit="return confirm('请检查当天的订单状态是否已确认！\n\n确定将该日期的所有已确认订单销量同步到库存系统？');">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <label style="font-weight:600;font-size:14px;">同步日期:</label>
-    {% if sync_dates %}
-    <select name="date" style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
-      {% for d in sync_dates %}
-      <option value="{{ d }}" {% if date_from == d %}selected{% endif %}>{{ d }}{% if d in synced_dates %} ✅已同步{% endif %}</option>
-      {% endfor %}
-    </select>
-    {% else %}
-    <input type="date" name="date" value="{{ date_from or '' }}" required class="date-input">
-    {% endif %}
-    <button type="submit" class="btn btn-sm" style="background:#3b82f6;color:#fff;font-size:14px;">  同步出库</button>
-    <span style="font-size:12px;color:var(--text-muted);">将该日所有已确认订单的SKU销量发送到库存系统</span>
-  </form>
-</div>
-{% endif %}
-
-<!-- ═══ Sync feedback ═══ -->
-{% if sync_result or sync_error %}
-<div style="margin-bottom:20px;padding:16px;border-radius:8px;{% if sync_error %}background:#fef2f2;border:1px solid #fecaca;{% else %}background:#f0fdf4;border:1px solid #bbf7d0;{% endif %}">
-  <h4 style="margin:0 0 8px;">{% if sync_error %}  同步失败{% else %}  同步结果{% endif %}</h4>
-  {% if sync_error %}
-  <p style="color:#dc2626;margin:0;font-size:14px;white-space:pre-wrap;">{{ sync_error }}</p>
-  {% endif %}
-  {% if sync_result %}
-  <p style="color:#166534;margin:0;font-size:13px;white-space:pre-wrap;font-family:monospace;">{{ sync_result }}</p>
-  {% endif %}
-  {% if sync_payload %}
-  <details style="margin-top:8px;">
-    <summary style="cursor:pointer;color:var(--text-muted);font-size:13px;">查看发送数据</summary>
-    <pre style="background:#f8f9fa;padding:12px;border-radius:4px;overflow-x:auto;font-size:12px;">{{ sync_payload | tojson(indent=2) }}</pre>
-  </details>
-  {% endif %}
-</div>
-<p style="text-align:center;">
-  <a href="{{ url_for('products.sales') }}" class="btn btn-outline btn-sm">← 返回销量查询</a>
-</p>
-{% else %}
-
 <!-- ═══ Per-SKU totals ═══ -->
 {% if sku_totals %}
 <h3 style="margin:20px 0 12px;">SKU 销量汇总</h3>
@@ -138,5 +94,4 @@
 </div>
 {% endif %}
 
-{% endif %}{# /sync feedback check #}
 {% endblock %}

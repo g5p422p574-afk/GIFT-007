@@ -1,10 +1,8 @@
 from datetime import datetime, timedelta
-import os
-import uuid
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, abort, flash
 from sqlalchemy.orm import joinedload
 from models import db, Product, User, Store, Order, OrderItem
-from config import ALLOWED_EXTENSIONS
+from image_utils import save_upload
 from security import audit, get_real_ip
 from cart_rules import MIXED_DELIVERY_MESSAGE, has_mixed_delivery
 
@@ -21,43 +19,6 @@ def _deny(order, reason="store_id mismatch"):
     audit.log("order_404", ip=ip, user_agent=ua, user_id=uid,
               detail=f"order_id={order.id}")
     abort(404)
-
-
-def allowed_file(filename):
-    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# Image magic bytes for content-type validation
-IMG_SIGNATURES = {
-    b"\x89PNG": "png",
-    b"\xff\xd8\xff": "jpg",
-    b"GIF8": "gif",
-    b"RIFF": "webp",
-}
-
-def is_valid_image_content(file):
-    """Verify file content matches an image signature."""
-    if not file:
-        return False
-    pos = file.tell()
-    try:
-        header = file.read(12)
-        file.seek(pos)
-        if not header:
-            return False
-        for sig, ext in IMG_SIGNATURES.items():
-            if header.startswith(sig):
-                return True
-        return False
-    except Exception:
-        return False
-
-def save_upload(file):
-    if file and allowed_file(file.filename) and is_valid_image_content(file):
-        ext = file.filename.rsplit(".", 1)[1].lower()
-        fname = f"{uuid.uuid4().hex}.{ext}"
-        file.save(os.path.join(current_app.config["UPLOAD_FOLDER"], fname))
-        return fname
-    return ""
 
 
 def is_admin_user():
@@ -176,7 +137,9 @@ def ship(order_id):
         return redirect(url_for("home.login"))
     order = Order.query.get_or_404(order_id)
     tracking_no = request.form.get("tracking_no", "").strip()
-    shipping_image = save_upload(request.files.get("shipping_image"))
+    shipping_image = save_upload(
+        request.files.get("shipping_image"), current_app.config["UPLOAD_FOLDER"]
+    )
 
     if tracking_no:
         order.tracking_no = tracking_no
@@ -198,7 +161,9 @@ def update_payment(order_id):
         _deny(order)
     if order.status not in ("ordered", "confirmed"):
         return redirect(url_for("orders.detail", order_id=order.id))
-    new_image = save_upload(request.files.get("payment_image"))
+    new_image = save_upload(
+        request.files.get("payment_image"), current_app.config["UPLOAD_FOLDER"]
+    )
     if new_image:
         order.payment_image = new_image
         db.session.commit()
