@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta
+import re
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, abort, flash
 from sqlalchemy.orm import joinedload
 from models import db, Product, User, Store, Order, OrderItem
@@ -7,6 +8,20 @@ from security import audit, get_real_ip
 from cart_rules import MIXED_DELIVERY_MESSAGE, has_mixed_delivery
 
 orders_bp = Blueprint("orders", __name__)
+
+
+def _shelf_sort_key(item):
+    """Sort shelf numbers naturally so A2 comes before A10."""
+    shelf_no = (getattr(item.product, "shelf_no", "") or "").strip().casefold()
+    natural_parts = tuple(
+        (0, int(part)) if part.isdigit() else (1, part)
+        for part in re.split(r"(\d+)", shelf_no)
+    )
+    return natural_parts, item.id or 0
+
+
+def _items_by_shelf(items):
+    return sorted(items, key=_shelf_sort_key)
 
 
 def _deny(order, reason="store_id mismatch"):
@@ -241,7 +256,9 @@ def print_order(order_id):
             return redirect(url_for("home.login"))
         if order.store_id != session["store_id"]:
             _deny(order)
-    return render_template("order_print.html", order=order)
+    return render_template(
+        "order_print.html", order=order, sorted_items=_items_by_shelf(order.items)
+    )
 
 
 @orders_bp.route("/batch-print")
@@ -255,7 +272,14 @@ def batch_print():
     orders = Order.query.options(
         joinedload(Order.items).joinedload(OrderItem.product)
     ).filter(Order.id.in_(id_list)).order_by(Order.created_at.desc()).all()
-    return render_template("order_batch_print.html", orders=orders)
+    sorted_items_by_order = {
+        order.id: _items_by_shelf(order.items) for order in orders
+    }
+    return render_template(
+        "order_batch_print.html",
+        orders=orders,
+        sorted_items_by_order=sorted_items_by_order,
+    )
 
 
 @orders_bp.route("/after-sales")

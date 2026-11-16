@@ -40,7 +40,7 @@
         <tr><th>图片</th><th>商品名称</th><th>货架号</th><th>数量</th></tr>
       </thead>
       <tbody>
-        {% for item in order.items %}
+        {% for item in sorted_items_by_order[order.id] %}
         <tr>
           <td>
             {% if item.product.image %}
@@ -54,7 +54,7 @@
         {% endfor %}
       </tbody>
       <tfoot>
-        <tr><td colspan="2" style="text-align:right;font-weight:600;">合计数量</td><td style="font-weight:700;">{{ order.items | sum(attribute='quantity') }} 件</td></tr>
+        <tr><td colspan="3" style="text-align:right;font-weight:600;">合计数量</td><td style="font-weight:700;">{{ sorted_items_by_order[order.id] | sum(attribute='quantity') }} 件</td></tr>
       </tfoot>
     </table>
   </div>

@@ -17,6 +17,7 @@ def app():
         TESTING=True,
         UPLOAD_FOLDER="uploads",
     )
+    test_app.jinja_env.filters["cst"] = lambda value, fmt="%m-%d %H:%M": value.strftime(fmt)
     db.init_app(test_app)
     csrf_protect(test_app)
     test_app.register_blueprint(home_bp)
@@ -65,6 +66,55 @@ def add(client, product_id):
         f"/cart/add/{product_id}",
         headers={"X-CSRF-Token": "token", "X-Requested-With": "XMLHttpRequest"},
     )
+
+
+def create_order_with_unsorted_shelves(app):
+    ids = app.config["IDS"]
+    with app.app_context():
+        product_a10 = Product(name="A10商品", shelf_no="A10", sku="SKU-10", price=10)
+        db.session.add(product_a10)
+        db.session.flush()
+        order = Order(
+            store_id=ids["store"],
+            customer_name="测试客户",
+            customer_address="测试地址",
+        )
+        db.session.add(order)
+        db.session.flush()
+        db.session.add_all([
+            OrderItem(order_id=order.id, product_id=ids["factory"], quantity=1, unit_price=20),
+            OrderItem(order_id=order.id, product_id=product_a10.id, quantity=1, unit_price=10),
+            OrderItem(order_id=order.id, product_id=ids["company_two"], quantity=1, unit_price=30),
+            OrderItem(order_id=order.id, product_id=ids["company"], quantity=1, unit_price=10),
+        ])
+        db.session.commit()
+        return order.id
+
+
+def assert_shelf_order(response):
+    html = response.get_data(as_text=True)
+    positions = [html.index(f">{shelf}<") for shelf in ("A1", "A2", "A10", "B1")]
+    assert positions == sorted(positions)
+
+
+def test_single_print_sorts_items_by_shelf_number(app, client):
+    order_id = create_order_with_unsorted_shelves(app)
+
+    response = client.get(f"/orders/{order_id}/print")
+
+    assert response.status_code == 200
+    assert_shelf_order(response)
+
+
+def test_batch_print_sorts_each_order_by_shelf_number(app, client):
+    order_id = create_order_with_unsorted_shelves(app)
+    with client.session_transaction() as sess:
+        sess["is_admin"] = True
+
+    response = client.get(f"/orders/batch-print?ids={order_id}")
+
+    assert response.status_code == 200
+    assert_shelf_order(response)
 
 
 def test_labels_and_same_delivery_products_can_share_cart(app, client):
