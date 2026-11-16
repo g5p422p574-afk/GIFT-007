@@ -1,9 +1,10 @@
 import pytest
+from datetime import datetime, timedelta
 from flask import Flask
 
 from csrf import csrf_protect
 from models import db, Order, OrderItem, Product, Store, User
-from routes.home import home_bp
+from routes.home import home_bp, is_order_time_blocked
 from routes.orders import orders_bp
 
 
@@ -66,6 +67,17 @@ def add(client, product_id):
         f"/cart/add/{product_id}",
         headers={"X-CSRF-Token": "token", "X-Requested-With": "XMLHttpRequest"},
     )
+
+
+@pytest.mark.parametrize(
+    ("beijing_hour", "blocked"),
+    [(0, False), (7, False), (8, True), (11, True), (12, False), (17, False), (23, False)],
+)
+def test_order_time_restriction_uses_beijing_8_to_12(beijing_hour, blocked):
+    beijing_time = datetime(2026, 1, 1, beijing_hour, 0, 0)
+    utc_time = beijing_time - timedelta(hours=8)
+
+    assert is_order_time_blocked(utc_time) is blocked
 
 
 def create_order_with_unsorted_shelves(app):

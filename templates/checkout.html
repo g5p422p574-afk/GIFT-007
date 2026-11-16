@@ -87,11 +87,11 @@
 {% block scripts %}
 <script>
 {% if time_check_enabled %}
-// Order time restriction: others 17:00-08:00 Beijing time
+// Order time restriction: pause from 08:00 to 12:00 Beijing time
 function isOrderBlocked() {
   var bj = new Date(new Date().getTime() + 8 * 3600 * 1000);
   var hour = bj.getUTCHours();
-  return hour >= 8 && hour < 17;
+  return hour >= 8 && hour < 12;
 }
 {% endif %}
 
@@ -99,7 +99,7 @@ document.getElementById('checkoutForm').addEventListener('submit', function(e) {
   {% if time_check_enabled %}
   if (isOrderBlocked()) {
     e.preventDefault();
-    alert('当前时间暂停下单（每天 08:00-17:00 暂停，17:00-次日 08:00 开放）');
+    alert('当前时间暂停下单（每天 08:00-12:00 暂停，其他时间开放）');
     return;
   }
   {% endif %}

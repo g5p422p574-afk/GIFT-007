@@ -14,6 +14,13 @@ from cart_rules import MIXED_DELIVERY_MESSAGE, cart_allows_product, has_mixed_de
 
 home_bp = Blueprint("home", __name__)
 
+
+def is_order_time_blocked(now_utc=None):
+    """Return whether Beijing time is inside the 08:00-12:00 order pause."""
+    now_utc = now_utc or datetime.utcnow()
+    bj_hour = (now_utc + timedelta(hours=8)).hour
+    return 8 <= bj_hour < 12
+
 # ── Simple in-memory rate limiter ──
 # Tracks (ip, endpoint) -> list of timestamps
 _rate_limit_store = defaultdict(list)
@@ -214,15 +221,14 @@ def checkout():
         flash(MIXED_DELIVERY_MESSAGE, "error")
         return redirect(url_for("home.cart"))
     if request.method == "POST":
-        # Order time restriction: all accounts only 17:00-08:00 Beijing time
-        bj_hour = (datetime.utcnow() + timedelta(hours=8)).hour
-        if 8 <= bj_hour < 17:
+        # Order time restriction: all accounts pause from 08:00 to 12:00 Beijing time.
+        if is_order_time_blocked():
             addresses = Address.query.filter_by(store_id=store_id).order_by(
                 Address.is_default.desc(), Address.id.desc()
             ).all()
             return render_template(
                 "checkout.html", items=items, total=total,
-                error="当前时间暂停下单（每天 08:00-17:00 暂停，17:00-次日 08:00 开放）",
+                error="当前时间暂停下单（每天 08:00-12:00 暂停，其他时间开放）",
                 addresses=addresses, checkout_token=session.get("checkout_token", ""),
                 time_check_enabled=True, **template_context()
             )
