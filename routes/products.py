@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, flash
-from sqlalchemy import Integer, cast, func, or_, text as _sql_text
+from sqlalchemy import Integer, cast, func, text as _sql_text
 from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash
 from models import db, Product, User, Store, OrderItem, Order
@@ -231,7 +231,9 @@ def finance():
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
     store_q = request.args.get("store", "").strip()
-    allowed_time_only = request.args.get("allowed_time") == "1"
+    time_period = request.args.get("time_period", "").strip()
+    if time_period not in ("early", "late"):
+        time_period = ""
 
     base = Order.query.filter(Order.status.in_(["confirmed", "shipped"]))
 
@@ -247,10 +249,13 @@ def finance():
         utc_to = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59) - timedelta(hours=8)
         base = base.filter(Order.created_at <= utc_to)
 
-    # Allowed checkout times in Beijing: 00:00-07:59 and 12:00-23:59.
-    if allowed_time_only:
+    # Allowed checkout periods are queried separately in Beijing time.
+    if time_period:
         cst_hour = _cst_hour_expression(Order.created_at)
-        base = base.filter(or_(cst_hour < 8, cst_hour >= 12))
+        if time_period == "early":
+            base = base.filter(cst_hour < 8)
+        else:
+            base = base.filter(cst_hour >= 12)
 
     # Summary stats
     total_revenue = base.with_entities(func.sum(Order.total_amount)).scalar() or 0
@@ -299,7 +304,7 @@ def finance():
         year_revenue=year_revenue, year_orders=year_orders,
         store_stats=store_stats, daily_stats=daily_stats,
         date_from=date_from, date_to=date_to, store_q=store_q,
-        allowed_time_only=allowed_time_only,
+        time_period=time_period,
         unviewed_count=unviewed,
         session_user=get_admin_user(),
     )

@@ -154,7 +154,7 @@ def test_inventory_sync_feature_is_removed(app):
     assert "products.sales_sync" not in template_source
 
 
-def test_finance_can_filter_revenue_to_allowed_checkout_times(app, client):
+def test_finance_can_filter_revenue_to_each_allowed_checkout_period(app, client):
     with app.app_context():
         store = Store.query.filter_by(store_name="深圳福田店").one()
         # created_at is UTC; these map to Beijing 07:59, 08:00, 11:59 and 12:00.
@@ -171,13 +171,24 @@ def test_finance_can_filter_revenue_to_allowed_checkout_times(app, client):
         db.session.add_all(orders)
         db.session.commit()
 
-    response = client.get(
-        "/admin/finance?date_from=2026-10-22&date_to=2026-10-22&allowed_time=1"
+    early_response = client.get(
+        "/admin/finance?date_from=2026-10-22&date_to=2026-10-22&time_period=early"
     )
-    html = response.get_data(as_text=True)
+    early_html = early_response.get_data(as_text=True)
 
-    assert response.status_code == 200
-    assert "仅统计允许下单时段" in html
-    assert "¥500.00" in html
-    assert "2 笔订单" in html
-    assert "¥1000.00" not in html
+    assert early_response.status_code == 200
+    assert '<option value="early" selected>' in early_html
+    assert "¥100.00" in early_html
+    assert "1 笔订单" in early_html
+    assert "¥400.00" not in early_html
+
+    late_response = client.get(
+        "/admin/finance?date_from=2026-10-22&date_to=2026-10-22&time_period=late"
+    )
+    late_html = late_response.get_data(as_text=True)
+
+    assert late_response.status_code == 200
+    assert '<option value="late" selected>' in late_html
+    assert "¥400.00" in late_html
+    assert "1 笔订单" in late_html
+    assert "¥100.00" not in late_html
