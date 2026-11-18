@@ -13,14 +13,16 @@ products_bp = Blueprint("products", __name__)
 
 def _cst_datetime_expression(column):
     """Return a database expression converting a UTC datetime to Beijing time."""
-    if db.session.get_bind().dialect.name == "sqlite":
+    database_uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    if database_uri.startswith("sqlite"):
         return func.datetime(column, "+8 hours")
     return column + _sql_text("INTERVAL 8 HOUR")
 
 
 def _cst_hour_expression(column):
     """Return the hour component of a UTC datetime after conversion to Beijing time."""
-    if db.session.get_bind().dialect.name == "sqlite":
+    database_uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    if database_uri.startswith("sqlite"):
         return cast(func.strftime("%H", column, "+8 hours"), Integer)
     return func.hour(_cst_datetime_expression(column))
 
