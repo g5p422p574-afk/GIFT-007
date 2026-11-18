@@ -1,11 +1,11 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pytest
 from flask import Flask
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from csrf import csrf_protect
-from models import db, Store, User
+from models import db, Order, Store, User
 from routes.home import home_bp
 from routes.orders import orders_bp
 from routes.products import products_bp
@@ -152,3 +152,32 @@ def test_inventory_sync_feature_is_removed(app):
     )[0]
     assert "同步到库存系统" not in template_source
     assert "products.sales_sync" not in template_source
+
+
+def test_finance_can_filter_revenue_to_allowed_checkout_times(app, client):
+    with app.app_context():
+        store = Store.query.filter_by(store_name="深圳福田店").one()
+        # created_at is UTC; these map to Beijing 07:59, 08:00, 11:59 and 12:00.
+        orders = [
+            Order(store_id=store.id, customer_name="客户1", customer_address="地址",
+                  total_amount=100, status="confirmed", created_at=datetime(2026, 10, 21, 23, 59)),
+            Order(store_id=store.id, customer_name="客户2", customer_address="地址",
+                  total_amount=200, status="confirmed", created_at=datetime(2026, 10, 22, 0, 0)),
+            Order(store_id=store.id, customer_name="客户3", customer_address="地址",
+                  total_amount=300, status="shipped", created_at=datetime(2026, 10, 22, 3, 59)),
+            Order(store_id=store.id, customer_name="客户4", customer_address="地址",
+                  total_amount=400, status="shipped", created_at=datetime(2026, 10, 22, 4, 0)),
+        ]
+        db.session.add_all(orders)
+        db.session.commit()
+
+    response = client.get(
+        "/admin/finance?date_from=2026-10-22&date_to=2026-10-22&allowed_time=1"
+    )
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "仅统计允许下单时段" in html
+    assert "¥500.00" in html
+    assert "2 笔订单" in html
+    assert "¥1000.00" not in html

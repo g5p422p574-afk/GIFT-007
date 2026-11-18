@@ -14,8 +14,12 @@
     <span>至</span>
     <input type="date" name="date_to" value="{{ date_to }}" class="date-input">
   </div>
+  <label style="display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:13px;">
+    <input type="checkbox" name="allowed_time" value="1" {% if allowed_time_only %}checked{% endif %}>
+    仅统计允许下单时段（00:00-07:59、12:00-23:59）
+  </label>
   <button type="submit" class="btn btn-primary btn-sm">筛选</button>
-  {% if date_from or date_to or store_q %}
+  {% if date_from or date_to or store_q or allowed_time_only %}
   <a href="{{ url_for('products.finance') }}" class="btn btn-sm" style="color:var(--danger);">清除</a>
   {% endif %}
 </form>

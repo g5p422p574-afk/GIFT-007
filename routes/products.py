@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import Blueprint, render_template, request, redirect, url_for, current_app, session, flash
-from sqlalchemy import func, text as _sql_text
+from sqlalchemy import Integer, cast, func, or_, text as _sql_text
 from sqlalchemy.orm import joinedload
 from werkzeug.security import generate_password_hash
 from models import db, Product, User, Store, OrderItem, Order
@@ -9,6 +9,20 @@ from image_utils import save_upload
 from security import audit, get_real_ip
 
 products_bp = Blueprint("products", __name__)
+
+
+def _cst_datetime_expression(column):
+    """Return a database expression converting a UTC datetime to Beijing time."""
+    if db.session.get_bind().dialect.name == "sqlite":
+        return func.datetime(column, "+8 hours")
+    return column + _sql_text("INTERVAL 8 HOUR")
+
+
+def _cst_hour_expression(column):
+    """Return the hour component of a UTC datetime after conversion to Beijing time."""
+    if db.session.get_bind().dialect.name == "sqlite":
+        return cast(func.strftime("%H", column, "+8 hours"), Integer)
+    return func.hour(_cst_datetime_expression(column))
 
 
 def parse_stock(value):
@@ -215,6 +229,7 @@ def finance():
     date_from = request.args.get("date_from", "").strip()
     date_to = request.args.get("date_to", "").strip()
     store_q = request.args.get("store", "").strip()
+    allowed_time_only = request.args.get("allowed_time") == "1"
 
     base = Order.query.filter(Order.status.in_(["confirmed", "shipped"]))
 
@@ -229,6 +244,11 @@ def finance():
     if date_to:
         utc_to = datetime.strptime(date_to, "%Y-%m-%d").replace(hour=23, minute=59, second=59) - timedelta(hours=8)
         base = base.filter(Order.created_at <= utc_to)
+
+    # Allowed checkout times in Beijing: 00:00-07:59 and 12:00-23:59.
+    if allowed_time_only:
+        cst_hour = _cst_hour_expression(Order.created_at)
+        base = base.filter(or_(cst_hour < 8, cst_hour >= 12))
 
     # Summary stats
     total_revenue = base.with_entities(func.sum(Order.total_amount)).scalar() or 0
@@ -258,7 +278,7 @@ def finance():
     ).order_by(func.sum(Order.total_amount).desc()).all()
 
     # Daily breakdown (last 30 days, grouped by CST date)
-    CST_DATE = func.date(Order.created_at + _sql_text("INTERVAL 8 HOUR"))
+    CST_DATE = func.date(_cst_datetime_expression(Order.created_at))
     daily_stats = base.filter(
         Order.created_at >= datetime.utcnow() - timedelta(days=31)
     ).with_entities(
@@ -277,6 +297,7 @@ def finance():
         year_revenue=year_revenue, year_orders=year_orders,
         store_stats=store_stats, daily_stats=daily_stats,
         date_from=date_from, date_to=date_to, store_q=store_q,
+        allowed_time_only=allowed_time_only,
         unviewed_count=unviewed,
         session_user=get_admin_user(),
     )
